@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Transformer Audit System</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(255, 255, 255, 0.9);
+            margin: 10px;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+        
+        .layer-control {
+            margin: 5px 0;
+        }
+        
+        .layer-control input {
+            margin-right: 5px;
+        }
+        
+        .popup-content {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .audit-button {
+            background: #007cbf;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .audit-button:hover {
+            background: #005a8b;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    
+    <div class='map-overlay'>
+        <h3>Layer Controls</h3>
+        <div class='layer-control'>
+            <input type='checkbox' id='transformer-toggle' checked>
+            <label for='transformer-toggle'>Transformer Banks</label>
+        </div>
+        <div class='layer-control'>
+            <input type='checkbox' id='meters-toggle' checked>
+            <label for='meters-toggle'>Electric Meters</label>
+        </div>
+        <div class='layer-control'>
+            <input type='checkbox' id='secondary-oh-toggle' checked>
+            <label for='secondary-oh-toggle'>Secondary Overhead</label>
+        </div>
+        <div class='layer-control'>
+            <input type='checkbox' id='secondary-ug-toggle' checked>
+            <label for='secondary-ug-toggle'>Secondary Underground</label>
+        </div>
+    </div>
+    
+    <div class='loading' id='loading'>Loading map data...</div>
+
+    <script>
+        // Mapbox access token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWR5emNseWgwNzk4MmtwcnUwejhvOGRpIn0.0V5SRvcXskZcqbtzeMkUnA';
+
+        // Initialize map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/satellite-streets-v12', // Good for utility infrastructure
+            center: [-78.5, 35.8], // Approximate center of North Carolina - adjust as needed
+            zoom: 10
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+        map.addControl(new mapboxgl.FullscreenControl());
+
+        // Show loading indicator
+        document.getElementById('loading').style.display = 'block';
+
+        map.on('load', function() {
+            // Hide loading indicator
+            document.getElementById('loading').style.display = 'none';
+
+            // Add data sources
+            map.addSource('transformers', {
+                'type': 'vector',
+                'url': 'mapbox://fieldsense.9i382k93'
+            });
+
+            map.addSource('meters', {
+                'type': 'vector',
+                'url': 'mapbox://fieldsense.00srtpq5'
+            });
+
+            map.addSource('secondary-oh', {
+                'type': 'vector',
+                'url': 'mapbox://fieldsense.0wvcayxk'
+            });
+
+            map.addSource('secondary-ug', {
+                'type': 'vector',
+                'url': 'mapbox://fieldsense.cgp8b9gy'
+            });
+
+            // Add transformer banks layer (most important for audits)
+            map.addLayer({
+                'id': 'transformer-banks',
+                'type': 'circle',
+                'source': 'transformers',
+                'source-layer': 'transformer_banks2',
+                'paint': {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 4,
+                        16, 8,
+                        20, 12
+                    ],
+                    'circle-color': '#ff6b35',
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 2,
+                    'circle-opacity': 0.8
+                }
+            });
+
+            // Add electric meters layer
+            map.addLayer({
+                'id': 'electric-meters',
+                'type': 'circle',
+                'source': 'meters',
+                'source-layer': 'electric_meters2',
+                'paint': {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        12, 2,
+                        16, 4,
+                        20, 6
+                    ],
+                    'circle-color': '#4a90e2',
+                    'circle-opacity': 0.6
+                },
+                'minzoom': 14 // Only show at higher zoom levels
+            });
+
+            // Add secondary overhead lines
+            map.addLayer({
+                'id': 'secondary-overhead',
+                'type': 'line',
+                'source': 'secondary-oh',
+                'source-layer': 'secondary_OH2',
+                'paint': {
+                    'line-color': '#2ecc71',
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 1,
+                        16, 2,
+                        20, 3
+                    ],
+                    'line-opacity': 0.8
+                },
+                'minzoom': 12
+            });
+
+            // Add secondary underground lines
+            map.addLayer({
+                'id': 'secondary-underground',
+                'type': 'line',
+                'source': 'secondary-ug',
+                'source-layer': 'secondary_UG2',
+                'paint': {
+                    'line-color': '#e74c3c',
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 1,
+                        16, 2,
+                        20, 3
+                    ],
+                    'line-opacity': 0.8,
+                    'line-dasharray': [2, 2] // Dashed line to distinguish from overhead
+                },
+                'minzoom': 12
+            });
+
+            // Add click event for transformer audits
+            map.on('click', 'transformer-banks', function(e) {
+                const properties = e.features[0].properties;
+                
+                // Create popup content
+                let popupContent = '<div class="popup-content">';
+                popupContent += '<h4>Transformer Bank</h4>';
+                
+                // Display key properties (adjust based on your actual data structure)
+                Object.keys(properties).slice(0, 5).forEach(key => {
+                    if (properties[key] !== null && properties[key] !== '') {
+                        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                    }
+                });
+                
+                // Look for audit URL in the properties (common field names)
+                const auditUrl = properties.audit_url || properties.form_url || properties.url || properties.audit_form || properties.link;
+                
+                if (auditUrl) {
+                    popupContent += '<button class="audit-button" onclick="window.open(\'' + auditUrl + '\', \'_blank\')">Start Audit</button>';
+                } else {
+                    popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
+                        (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
+                }
+                popupContent += '</div>';
+
+                new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(popupContent)
+                    .addTo(map);
+            });
+
+            // Change cursor on hover
+            map.on('mouseenter', 'transformer-banks', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'transformer-banks', function() {
+                map.getCanvas().style.cursor = '';
+            });
+
+            // Layer toggle functionality
+            document.getElementById('transformer-toggle').addEventListener('change', function(e) {
+                map.setLayoutProperty('transformer-banks', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+
+            document.getElementById('meters-toggle').addEventListener('change', function(e) {
+                map.setLayoutProperty('electric-meters', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+
+            document.getElementById('secondary-oh-toggle').addEventListener('change', function(e) {
+                map.setLayoutProperty('secondary-overhead', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+
+            document.getElementById('secondary-ug-toggle').addEventListener('change', function(e) {
+                map.setLayoutProperty('secondary-underground', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+        });
+
+        // Function to start audit - customize this to redirect to your form
+        function startAudit(transformerId) {
+            // Option 1: Redirect to external form with transformer ID
+            const formUrl = `https://your-form-url.com/audit?transformer_id=${transformerId}`;
+            window.open(formUrl, '_blank');
+            
+            // Option 2: Open in same window
+            // window.location.href = formUrl;
+            
+            // Option 3: Show embedded form (if you prefer)
+            // showEmbeddedForm(transformerId);
+        }
+
+        // Optional: Function to show embedded form
+        function showEmbeddedForm(transformerId) {
+            // You can create a modal or sidebar form here
+            alert(`Starting audit for transformer: ${transformerId}\n\nReplace this with your actual form integration.`);
+        }
+    </script>
+</body>
+</html>
