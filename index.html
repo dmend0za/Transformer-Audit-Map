@@ -116,8 +116,8 @@
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/satellite-streets-v12',
-            center: [-78.5, 35.8], // North Carolina center
-            zoom: 10
+            center: [-77.88424798136592, 35.734696861467626], // Your specified coordinates
+            zoom: 12 // Increased zoom for better detail
         });
 
         // Add navigation controls
@@ -169,95 +169,170 @@
                 }
             });
 
-            // Try different possible source-layer names for transformers
-            const possibleTransformerNames = [
-                'transformer_banks2',
-                'transformer-banks2', 
-                'transformerbanks2',
-                'transformer_banks',
-                'transformers',
-                'default'
+            // Try different possible source-layer names for all layers
+            const layerTests = [
+                {
+                    source: 'transformers',
+                    possibleNames: [
+                        'transformer_banks2',
+                        'transformer-banks2', 
+                        'transformerbanks2',
+                        'transformer_banks',
+                        'transformers',
+                        'electric_meters2', // Sometimes files get mixed up
+                        'default'
+                    ],
+                    displayName: 'Transformers',
+                    color: '#ff6b35'
+                },
+                {
+                    source: 'meters',
+                    possibleNames: [
+                        'electric_meters2',
+                        'electric-meters2',
+                        'electricmeters2',
+                        'electric_meters',
+                        'meters',
+                        'transformer_banks2', // Check for mix-ups
+                        'default'
+                    ],
+                    displayName: 'Meters',
+                    color: '#4a90e2'
+                },
+                {
+                    source: 'secondary-oh',
+                    possibleNames: [
+                        'secondary_OH2',
+                        'secondary-OH2',
+                        'secondaryOH2',
+                        'secondary_oh2',
+                        'secondary-oh2',
+                        'secondaryoh2',
+                        'secondary_OH',
+                        'overhead',
+                        'default'
+                    ],
+                    displayName: 'Secondary OH',
+                    color: '#2ecc71'
+                },
+                {
+                    source: 'secondary-ug',
+                    possibleNames: [
+                        'secondary_UG2',
+                        'secondary-UG2',
+                        'secondaryUG2',
+                        'secondary_ug2',
+                        'secondary-ug2',
+                        'secondaryug2',
+                        'secondary_UG',
+                        'underground',
+                        'default'
+                    ],
+                    displayName: 'Secondary UG',
+                    color: '#e74c3c'
+                }
             ];
 
-            let transformerLayerAdded = false;
-            
-            possibleTransformerNames.forEach((layerName, index) => {
-                if (transformerLayerAdded) return;
+            // Test each layer type
+            layerTests.forEach((layerTest, testIndex) => {
+                let layerFound = false;
                 
-                try {
-                    map.addLayer({
-                        'id': `transformer-test-${index}`,
-                        'type': 'circle',
-                        'source': 'transformers',
-                        'source-layer': layerName,
-                        'paint': {
-                            'circle-radius': 8,
-                            'circle-color': '#ff6b35',
-                            'circle-stroke-color': '#ffffff',
-                            'circle-stroke-width': 2,
-                            'circle-opacity': 0.8
-                        }
-                    });
+                layerTest.possibleNames.forEach((layerName, nameIndex) => {
+                    if (layerFound) return;
                     
-                    // Check if layer has features
-                    setTimeout(() => {
-                        const features = map.querySourceFeatures('transformers', {
-                            sourceLayer: layerName
+                    const layerId = `${layerTest.source}-test-${nameIndex}`;
+                    
+                    try {
+                        map.addLayer({
+                            'id': layerId,
+                            'type': layerTest.source.includes('secondary') ? 'line' : 'circle',
+                            'source': layerTest.source,
+                            'source-layer': layerName,
+                            'paint': layerTest.source.includes('secondary') ? {
+                                'line-color': layerTest.color,
+                                'line-width': 2,
+                                'line-opacity': 0.8
+                            } : {
+                                'circle-radius': 6,
+                                'circle-color': layerTest.color,
+                                'circle-stroke-color': '#ffffff',
+                                'circle-stroke-width': 1,
+                                'circle-opacity': 0.8
+                            }
                         });
                         
-                        if (features && features.length > 0) {
-                            updateDebugInfo(`✓ FOUND TRANSFORMERS: source-layer="${layerName}" (${features.length} features)`);
-                            transformerLayerAdded = true;
-                            
-                            // Remove other test layers
-                            for (let i = 0; i < possibleTransformerNames.length; i++) {
-                                if (i !== index && map.getLayer(`transformer-test-${i}`)) {
-                                    map.removeLayer(`transformer-test-${i}`);
-                                }
-                            }
-                            
-                            // Add click event to the working layer
-                            map.on('click', `transformer-test-${index}`, function(e) {
-                                const properties = e.features[0].properties;
-                                
-                                let popupContent = '<div class="popup-content">';
-                                popupContent += '<h4>Transformer Bank</h4>';
-                                
-                                Object.keys(properties).slice(0, 5).forEach(key => {
-                                    if (properties[key] !== null && properties[key] !== '') {
-                                        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                                    }
+                        // Check if layer has features after a delay
+                        setTimeout(() => {
+                            try {
+                                const features = map.querySourceFeatures(layerTest.source, {
+                                    sourceLayer: layerName
                                 });
                                 
-                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
-                                    (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
-                                popupContent += '</div>';
+                                if (features && features.length > 0) {
+                                    updateDebugInfo(`✓ FOUND ${layerTest.displayName}: "${layerName}" (${features.length} features)`);
+                                    layerFound = true;
+                                    
+                                    // Remove other test layers for this source
+                                    layerTest.possibleNames.forEach((_, otherIndex) => {
+                                        if (otherIndex !== nameIndex) {
+                                            const otherLayerId = `${layerTest.source}-test-${otherIndex}`;
+                                            if (map.getLayer(otherLayerId)) {
+                                                map.removeLayer(otherLayerId);
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Add click event for transformers
+                                    if (layerTest.source === 'transformers') {
+                                        map.on('click', layerId, function(e) {
+                                            const properties = e.features[0].properties;
+                                            
+                                            let popupContent = '<div class="popup-content">';
+                                            popupContent += '<h4>Transformer Bank</h4>';
+                                            
+                                            Object.keys(properties).slice(0, 5).forEach(key => {
+                                                if (properties[key] !== null && properties[key] !== '') {
+                                                    popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                                                }
+                                            });
+                                            
+                                            popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
+                                                (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
+                                            popupContent += '</div>';
 
-                                new mapboxgl.Popup()
-                                    .setLngLat(e.lngLat)
-                                    .setHTML(popupContent)
-                                    .addTo(map);
-                            });
-                            
-                            map.on('mouseenter', `transformer-test-${index}`, function() {
-                                map.getCanvas().style.cursor = 'pointer';
-                            });
+                                            new mapboxgl.Popup()
+                                                .setLngLat(e.lngLat)
+                                                .setHTML(popupContent)
+                                                .addTo(map);
+                                        });
+                                        
+                                        map.on('mouseenter', layerId, function() {
+                                            map.getCanvas().style.cursor = 'pointer';
+                                        });
 
-                            map.on('mouseleave', `transformer-test-${index}`, function() {
-                                map.getCanvas().style.cursor = '';
-                            });
-                            
-                        } else {
-                            updateDebugInfo(`✗ No features found for: ${layerName}`);
-                            if (map.getLayer(`transformer-test-${index}`)) {
-                                map.removeLayer(`transformer-test-${index}`);
+                                        map.on('mouseleave', layerId, function() {
+                                            map.getCanvas().style.cursor = '';
+                                        });
+                                    }
+                                    
+                                } else {
+                                    updateDebugInfo(`✗ No features: ${layerTest.displayName} - "${layerName}"`);
+                                    if (map.getLayer(layerId)) {
+                                        map.removeLayer(layerId);
+                                    }
+                                }
+                            } catch (error) {
+                                updateDebugInfo(`✗ Error querying ${layerTest.displayName} - "${layerName}": ${error.message}`);
+                                if (map.getLayer(layerId)) {
+                                    map.removeLayer(layerId);
+                                }
                             }
-                        }
-                    }, 3000);
-                    
-                } catch (error) {
-                    updateDebugInfo(`✗ Error testing layer "${layerName}": ${error.message}`);
-                }
+                        }, 2000 + (testIndex * 1000)); // Stagger the tests
+                        
+                    } catch (error) {
+                        updateDebugInfo(`✗ Error adding ${layerTest.displayName} layer "${layerName}": ${error.message}`);
+                    }
+                });
             });
 
             // Also try to inspect what's actually in the tileset
