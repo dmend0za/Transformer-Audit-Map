@@ -20,6 +20,9 @@
             padding: 10px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             z-index: 1;
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         
         .layer-control {
@@ -62,6 +65,17 @@
             z-index: 1000;
             display: none;
         }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -85,19 +99,24 @@
             <input type='checkbox' id='secondary-ug-toggle' checked>
             <label for='secondary-ug-toggle'>Secondary Underground</label>
         </div>
+        
+        <div class='debug-info' id='debug-info'>
+            <strong>Debug Info:</strong><br>
+            Loading tileset information...
+        </div>
     </div>
     
     <div class='loading' id='loading'>Loading map data...</div>
 
     <script>
         // Mapbox access token
-        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWR5emNseWgwNzk4MmtwcnUwejhvOGRpIn0.0V5SRvcXskZcqbtzeMkUnA';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWR5emNseWgwNzk4MnVwcnUwejhvOGRpIn0.0V5SRvcXskZcqbtzeMkUnA';
 
         // Initialize map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/satellite-streets-v12', // Good for utility infrastructure
-            center: [-78.5, 35.8], // Approximate center of North Carolina - adjust as needed
+            style: 'mapbox://styles/mapbox/satellite-streets-v12',
+            center: [-78.5, 35.8], // North Carolina center
             zoom: 10
         });
 
@@ -107,199 +126,167 @@
 
         // Show loading indicator
         document.getElementById('loading').style.display = 'block';
+        
+        // Debug info element
+        const debugInfo = document.getElementById('debug-info');
+        
+        // Function to update debug info
+        function updateDebugInfo(message) {
+            debugInfo.innerHTML += message + '<br>';
+            console.log(message);
+        }
 
         map.on('load', function() {
-            // Hide loading indicator
             document.getElementById('loading').style.display = 'none';
+            updateDebugInfo('Map loaded successfully');
 
-            // Add data sources
-            map.addSource('transformers', {
-                'type': 'vector',
-                'url': 'mapbox://fieldsense.9i382k93'
-            });
+            // Add sources and inspect them
+            const tilesets = [
+                { id: 'transformers', mapboxId: 'fieldsense.9i382k93', name: 'Transformer Banks' },
+                { id: 'meters', mapboxId: 'fieldsense.00srtpq5', name: 'Electric Meters' },
+                { id: 'secondary-oh', mapboxId: 'fieldsense.0wvcayxk', name: 'Secondary OH' },
+                { id: 'secondary-ug', mapboxId: 'fieldsense.cgp8b9gy', name: 'Secondary UG' }
+            ];
 
-            map.addSource('meters', {
-                'type': 'vector',
-                'url': 'mapbox://fieldsense.00srtpq5'
-            });
-
-            map.addSource('secondary-oh', {
-                'type': 'vector',
-                'url': 'mapbox://fieldsense.0wvcayxk'
-            });
-
-            map.addSource('secondary-ug', {
-                'type': 'vector',
-                'url': 'mapbox://fieldsense.cgp8b9gy'
-            });
-
-            // Add transformer banks layer (most important for audits)
-            map.addLayer({
-                'id': 'transformer-banks',
-                'type': 'circle',
-                'source': 'transformers',
-                'source-layer': 'transformer_banks2',
-                'paint': {
-                    'circle-radius': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        10, 4,
-                        16, 8,
-                        20, 12
-                    ],
-                    'circle-color': '#ff6b35',
-                    'circle-stroke-color': '#ffffff',
-                    'circle-stroke-width': 2,
-                    'circle-opacity': 0.8
+            tilesets.forEach(tileset => {
+                try {
+                    map.addSource(tileset.id, {
+                        'type': 'vector',
+                        'url': `mapbox://${tileset.mapboxId}`
+                    });
+                    updateDebugInfo(`✓ Added source: ${tileset.name}`);
+                    
+                    // Try to get source info
+                    setTimeout(() => {
+                        const source = map.getSource(tileset.id);
+                        if (source && source.vectorLayerIds) {
+                            updateDebugInfo(`${tileset.name} layers: ${source.vectorLayerIds.join(', ')}`);
+                        }
+                    }, 2000);
+                    
+                } catch (error) {
+                    updateDebugInfo(`✗ Error adding ${tileset.name}: ${error.message}`);
                 }
             });
 
-            // Add electric meters layer
-            map.addLayer({
-                'id': 'electric-meters',
-                'type': 'circle',
-                'source': 'meters',
-                'source-layer': 'electric_meters2',
-                'paint': {
-                    'circle-radius': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        12, 2,
-                        16, 4,
-                        20, 6
-                    ],
-                    'circle-color': '#4a90e2',
-                    'circle-opacity': 0.6
-                },
-                'minzoom': 14 // Only show at higher zoom levels
-            });
+            // Try different possible source-layer names for transformers
+            const possibleTransformerNames = [
+                'transformer_banks2',
+                'transformer-banks2', 
+                'transformerbanks2',
+                'transformer_banks',
+                'transformers',
+                'default'
+            ];
 
-            // Add secondary overhead lines
-            map.addLayer({
-                'id': 'secondary-overhead',
-                'type': 'line',
-                'source': 'secondary-oh',
-                'source-layer': 'secondary_OH2',
-                'paint': {
-                    'line-color': '#2ecc71',
-                    'line-width': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        10, 1,
-                        16, 2,
-                        20, 3
-                    ],
-                    'line-opacity': 0.8
-                },
-                'minzoom': 12
-            });
-
-            // Add secondary underground lines
-            map.addLayer({
-                'id': 'secondary-underground',
-                'type': 'line',
-                'source': 'secondary-ug',
-                'source-layer': 'secondary_UG2',
-                'paint': {
-                    'line-color': '#e74c3c',
-                    'line-width': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        10, 1,
-                        16, 2,
-                        20, 3
-                    ],
-                    'line-opacity': 0.8,
-                    'line-dasharray': [2, 2] // Dashed line to distinguish from overhead
-                },
-                'minzoom': 12
-            });
-
-            // Add click event for transformer audits
-            map.on('click', 'transformer-banks', function(e) {
-                const properties = e.features[0].properties;
+            let transformerLayerAdded = false;
+            
+            possibleTransformerNames.forEach((layerName, index) => {
+                if (transformerLayerAdded) return;
                 
-                // Create popup content
-                let popupContent = '<div class="popup-content">';
-                popupContent += '<h4>Transformer Bank</h4>';
-                
-                // Display key properties (adjust based on your actual data structure)
-                Object.keys(properties).slice(0, 5).forEach(key => {
-                    if (properties[key] !== null && properties[key] !== '') {
-                        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                try {
+                    map.addLayer({
+                        'id': `transformer-test-${index}`,
+                        'type': 'circle',
+                        'source': 'transformers',
+                        'source-layer': layerName,
+                        'paint': {
+                            'circle-radius': 8,
+                            'circle-color': '#ff6b35',
+                            'circle-stroke-color': '#ffffff',
+                            'circle-stroke-width': 2,
+                            'circle-opacity': 0.8
+                        }
+                    });
+                    
+                    // Check if layer has features
+                    setTimeout(() => {
+                        const features = map.querySourceFeatures('transformers', {
+                            sourceLayer: layerName
+                        });
+                        
+                        if (features && features.length > 0) {
+                            updateDebugInfo(`✓ FOUND TRANSFORMERS: source-layer="${layerName}" (${features.length} features)`);
+                            transformerLayerAdded = true;
+                            
+                            // Remove other test layers
+                            for (let i = 0; i < possibleTransformerNames.length; i++) {
+                                if (i !== index && map.getLayer(`transformer-test-${i}`)) {
+                                    map.removeLayer(`transformer-test-${i}`);
+                                }
+                            }
+                            
+                            // Add click event to the working layer
+                            map.on('click', `transformer-test-${index}`, function(e) {
+                                const properties = e.features[0].properties;
+                                
+                                let popupContent = '<div class="popup-content">';
+                                popupContent += '<h4>Transformer Bank</h4>';
+                                
+                                Object.keys(properties).slice(0, 5).forEach(key => {
+                                    if (properties[key] !== null && properties[key] !== '') {
+                                        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                                    }
+                                });
+                                
+                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
+                                    (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
+                                popupContent += '</div>';
+
+                                new mapboxgl.Popup()
+                                    .setLngLat(e.lngLat)
+                                    .setHTML(popupContent)
+                                    .addTo(map);
+                            });
+                            
+                            map.on('mouseenter', `transformer-test-${index}`, function() {
+                                map.getCanvas().style.cursor = 'pointer';
+                            });
+
+                            map.on('mouseleave', `transformer-test-${index}`, function() {
+                                map.getCanvas().style.cursor = '';
+                            });
+                            
+                        } else {
+                            updateDebugInfo(`✗ No features found for: ${layerName}`);
+                            if (map.getLayer(`transformer-test-${index}`)) {
+                                map.removeLayer(`transformer-test-${index}`);
+                            }
+                        }
+                    }, 3000);
+                    
+                } catch (error) {
+                    updateDebugInfo(`✗ Error testing layer "${layerName}": ${error.message}`);
+                }
+            });
+
+            // Also try to inspect what's actually in the tileset
+            setTimeout(() => {
+                updateDebugInfo('--- Inspecting tileset contents ---');
+                try {
+                    const source = map.getSource('transformers');
+                    if (source) {
+                        updateDebugInfo(`Source type: ${source.type}`);
+                        if (source.vectorLayerIds) {
+                            updateDebugInfo(`Available layers: ${source.vectorLayerIds.join(', ')}`);
+                        }
                     }
-                });
-                
-                // Look for audit URL in the properties (common field names)
-                const auditUrl = properties.audit_url || properties.form_url || properties.url || properties.audit_form || properties.link;
-                
-                if (auditUrl) {
-                    popupContent += '<button class="audit-button" onclick="window.open(\'' + auditUrl + '\', \'_blank\')">Start Audit</button>';
-                } else {
-                    popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
-                        (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
+                } catch (error) {
+                    updateDebugInfo(`Error inspecting source: ${error.message}`);
                 }
-                popupContent += '</div>';
-
-                new mapboxgl.Popup()
-                    .setLngLat(e.lngLat)
-                    .setHTML(popupContent)
-                    .addTo(map);
-            });
-
-            // Change cursor on hover
-            map.on('mouseenter', 'transformer-banks', function() {
-                map.getCanvas().style.cursor = 'pointer';
-            });
-
-            map.on('mouseleave', 'transformer-banks', function() {
-                map.getCanvas().style.cursor = '';
-            });
-
-            // Layer toggle functionality
-            document.getElementById('transformer-toggle').addEventListener('change', function(e) {
-                map.setLayoutProperty('transformer-banks', 'visibility', 
-                    e.target.checked ? 'visible' : 'none');
-            });
-
-            document.getElementById('meters-toggle').addEventListener('change', function(e) {
-                map.setLayoutProperty('electric-meters', 'visibility', 
-                    e.target.checked ? 'visible' : 'none');
-            });
-
-            document.getElementById('secondary-oh-toggle').addEventListener('change', function(e) {
-                map.setLayoutProperty('secondary-overhead', 'visibility', 
-                    e.target.checked ? 'visible' : 'none');
-            });
-
-            document.getElementById('secondary-ug-toggle').addEventListener('change', function(e) {
-                map.setLayoutProperty('secondary-underground', 'visibility', 
-                    e.target.checked ? 'visible' : 'none');
-            });
+            }, 4000);
         });
 
-        // Function to start audit - customize this to redirect to your form
+        // Function to start audit
         function startAudit(transformerId) {
-            // Option 1: Redirect to external form with transformer ID
-            const formUrl = `https://your-form-url.com/audit?transformer_id=${transformerId}`;
-            window.open(formUrl, '_blank');
-            
-            // Option 2: Open in same window
-            // window.location.href = formUrl;
-            
-            // Option 3: Show embedded form (if you prefer)
-            // showEmbeddedForm(transformerId);
+            alert(`Starting audit for transformer: ${transformerId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
         }
 
-        // Optional: Function to show embedded form
-        function showEmbeddedForm(transformerId) {
-            // You can create a modal or sidebar form here
-            alert(`Starting audit for transformer: ${transformerId}\n\nReplace this with your actual form integration.`);
-        }
+        // Simple layer toggles for now
+        document.getElementById('transformer-toggle').addEventListener('change', function(e) {
+            // We'll update this once we find the correct layer name
+            updateDebugInfo(`Transformer toggle: ${e.target.checked}`);
+        });
     </script>
 </body>
 </html>
