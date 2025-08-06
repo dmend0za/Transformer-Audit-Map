@@ -155,7 +155,7 @@
 
     <script>
         // Mapbox access token (your public token)
-        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWUwZjA1ZXgwNGRhMmlvbHRscXk2NjVsIn0.VGVrTxKM9nEDk25TnFdcdg';
 
         const debugInfo = document.getElementById('debug-info');
         
@@ -164,12 +164,12 @@
             console.log(message);
         }
 
-        // Initialize map with your custom style
+        // Initialize map - let's try with a basic style first to test
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // Your custom style
-            center: [-77.88424798136592, 35.734696861467626], // Your specified coordinates
-            zoom: 15 // Higher zoom to see details better
+            style: 'mapbox://styles/mapbox/satellite-streets-v12', // Start with basic style
+            center: [-77.88424798136592, 35.734696861467626],
+            zoom: 15
         });
 
         // Add navigation controls
@@ -181,109 +181,43 @@
 
         map.on('load', function() {
             document.getElementById('loading').style.display = 'none';
-            updateDebugInfo('✅ Map loaded with custom style');
+            updateDebugInfo('✅ Basic map loaded successfully');
 
-            // Get all layer IDs from the style
-            const layers = map.getStyle().layers;
-            updateDebugInfo(`Found ${layers.length} layers in style`);
+            // Now let's try to load your custom style as additional sources
+            updateDebugInfo('🔄 Attempting to load your tilesets as GeoJSON...');
             
-            // Log all layer IDs so we can see what's available
-            layers.forEach(layer => {
-                console.log(`Layer: ${layer.id}, Type: ${layer.type}, Source: ${layer.source}`);
-            });
-
-            // Find layers that might be your data layers
-            const dataLayers = layers.filter(layer => 
-                layer.source && typeof layer.source === 'string' && 
-                (layer.source.includes('fieldsense') || layer.source.includes('composite'))
-            );
-
-            updateDebugInfo(`Found ${dataLayers.length} data layers`);
-            dataLayers.forEach(layer => {
-                updateDebugInfo(`Data layer: ${layer.id} (${layer.type})`);
-            });
-
-            // Add click events to all circle and symbol layers (likely transformers/meters)
-            layers.forEach(layer => {
-                if ((layer.type === 'circle' || layer.type === 'symbol') && 
-                    layer.source && layer.source.includes && layer.source.includes('fieldsense')) {
+            // Let's try a different approach - load your tilesets as GeoJSON if possible
+            // First, let's see if we can test the custom style URL
+            fetch('https://api.mapbox.com/styles/v1/fieldsense/cmdzysazb00hd01s9cm2v4td1?access_token=' + mapboxgl.accessToken)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                })
+                .then(styleData => {
+                    updateDebugInfo('✅ Custom style is accessible');
+                    updateDebugInfo(`Style has ${styleData.layers ? styleData.layers.length : 0} layers`);
                     
-                    updateDebugInfo(`Adding click to: ${layer.id}`);
-                    
-                    map.on('click', layer.id, function(e) {
-                        if (e.features && e.features.length > 0) {
-                            const properties = e.features[0].properties;
-                            
-                            let popupContent = '<div class="popup-content">';
-                            popupContent += `<h4>Infrastructure Asset</h4>`;
-                            
-                            // Show first 6 properties
-                            let propertiesShown = 0;
-                            Object.keys(properties).forEach(key => {
-                                if (propertiesShown < 6 && properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
-                                    popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                                    propertiesShown++;
-                                }
-                            });
-                            
-                            // Look for audit URL
-                            const auditUrl = properties.audit_url || properties.form_url || properties.url || 
-                                           properties.audit_form || properties.link || properties.AUDIT_URL || 
-                                           properties.FORM_URL || properties.URL;
-                            
-                            if (auditUrl) {
-                                popupContent += '<button class="audit-button" onclick="window.open(\'' + auditUrl + '\', \'_blank\')">Start Audit</button>';
-                            } else {
-                                const assetId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
-                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + assetId + '\')">Start Audit</button>';
-                            }
-                            popupContent += '</div>';
+                    // Now try to switch to the custom style
+                    updateDebugInfo('🔄 Switching to custom style...');
+                    try {
+                        map.setStyle('mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1');
+                        updateDebugInfo('✅ Custom style loaded');
+                    } catch (error) {
+                        updateDebugInfo('❌ Error switching to custom style: ' + error.message);
+                    }
+                })
+                .catch(error => {
+                    updateDebugInfo('❌ Cannot access custom style: ' + error.message);
+                    updateDebugInfo('ℹ️ Continuing with basic style...');
+                });
 
-                            new mapboxgl.Popup()
-                                .setLngLat(e.lngLat)
-                                .setHTML(popupContent)
-                                .addTo(map);
-                        }
-                    });
-
-                    // Change cursor on hover
-                    map.on('mouseenter', layer.id, function() {
-                        map.getCanvas().style.cursor = 'pointer';
-                    });
-
-                    map.on('mouseleave', layer.id, function() {
-                        map.getCanvas().style.cursor = '';
-                    });
-                }
-            });
-
-            // Layer toggle functionality - we'll identify layers by their IDs
-            const layerToggleMap = {
-                'transformer-toggle': (layerId) => layerId.toLowerCase().includes('transformer') || layerId.toLowerCase().includes('bank'),
-                'meters-toggle': (layerId) => layerId.toLowerCase().includes('meter') || layerId.toLowerCase().includes('electric'),
-                'secondary-oh-toggle': (layerId) => layerId.toLowerCase().includes('overhead') || layerId.toLowerCase().includes('oh') || (layerId.toLowerCase().includes('secondary') && !layerId.toLowerCase().includes('ug') && !layerId.toLowerCase().includes('underground')),
-                'secondary-ug-toggle': (layerId) => layerId.toLowerCase().includes('underground') || layerId.toLowerCase().includes('ug') || (layerId.toLowerCase().includes('secondary') && (layerId.toLowerCase().includes('ug') || layerId.toLowerCase().includes('underground')))
-            };
-
-            Object.keys(layerToggleMap).forEach(toggleId => {
-                const toggle = document.getElementById(toggleId);
-                if (toggle) {
-                    toggle.addEventListener('change', function(e) {
-                        const matchingLayers = layers.filter(layer => layerToggleMap[toggleId](layer.id));
-                        
-                        matchingLayers.forEach(layer => {
-                            try {
-                                map.setLayoutProperty(layer.id, 'visibility', 
-                                    e.target.checked ? 'visible' : 'none');
-                            } catch (error) {
-                                console.log(`Could not toggle layer ${layer.id}:`, error.message);
-                            }
-                        });
-                        
-                        updateDebugInfo(`${toggleId}: ${matchingLayers.length} layers ${e.target.checked ? 'shown' : 'hidden'}`);
-                    });
-                }
-            });
+            // Alternative: Try to add your data as individual sources with basic styling
+            updateDebugInfo('🔄 Trying alternative data loading...');
+            
+            // This is just for testing - remove the detailed layer detection for now
+            updateDebugInfo('Map ready for testing');
         });
 
         // Handle map errors
