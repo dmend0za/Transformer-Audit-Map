@@ -91,6 +91,17 @@
             height: 3px;
             margin-right: 6px;
         }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 8px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 10px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -134,6 +145,10 @@
                 <span>Underground Lines</span>
             </div>
         </div>
+        
+        <div class='debug-info' id='debug-info'>
+            <strong>Status:</strong> Loading...
+        </div>
     </div>
     
     <div class='loading' id='loading'>Loading map data...</div>
@@ -142,12 +157,19 @@
         // Mapbox access token (your public token)
         mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
+        const debugInfo = document.getElementById('debug-info');
+        
+        function updateDebugInfo(message) {
+            debugInfo.innerHTML += '<br>' + message;
+            console.log(message);
+        }
+
         // Initialize map with your custom style
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // Your custom style
             center: [-77.88424798136592, 35.734696861467626], // Your specified coordinates
-            zoom: 12
+            zoom: 15 // Higher zoom to see details better
         });
 
         // Add navigation controls
@@ -158,57 +180,53 @@
         document.getElementById('loading').style.display = 'block';
 
         map.on('load', function() {
-            // Hide loading indicator
             document.getElementById('loading').style.display = 'none';
-            console.log('Map with custom style loaded successfully');
+            updateDebugInfo('✅ Map loaded with custom style');
 
-            // Get all layer IDs from the style to identify your data layers
+            // Get all layer IDs from the style
             const layers = map.getStyle().layers;
-            console.log('Available layers:', layers.map(layer => layer.id));
+            updateDebugInfo(`Found ${layers.length} layers in style`);
+            
+            // Log all layer IDs so we can see what's available
+            layers.forEach(layer => {
+                console.log(`Layer: ${layer.id}, Type: ${layer.type}, Source: ${layer.source}`);
+            });
 
-            // Find transformer layers (look for layers that might contain transformer data)
-            const transformerLayers = layers.filter(layer => 
-                layer.id.toLowerCase().includes('transformer') ||
-                layer.id.toLowerCase().includes('bank') ||
-                (layer.type === 'circle' && layer.source && layer.source.includes('fieldsense'))
+            // Find layers that might be your data layers
+            const dataLayers = layers.filter(layer => 
+                layer.source && typeof layer.source === 'string' && 
+                (layer.source.includes('fieldsense') || layer.source.includes('composite'))
             );
 
-            console.log('Potential transformer layers found:', transformerLayers.map(l => l.id));
+            updateDebugInfo(`Found ${dataLayers.length} data layers`);
+            dataLayers.forEach(layer => {
+                updateDebugInfo(`Data layer: ${layer.id} (${layer.type})`);
+            });
 
-            // Add click events to transformer layers
-            transformerLayers.forEach(layer => {
-                if (layer.type === 'circle' || layer.type === 'symbol') {
+            // Add click events to all circle and symbol layers (likely transformers/meters)
+            layers.forEach(layer => {
+                if ((layer.type === 'circle' || layer.type === 'symbol') && 
+                    layer.source && layer.source.includes && layer.source.includes('fieldsense')) {
+                    
+                    updateDebugInfo(`Adding click to: ${layer.id}`);
+                    
                     map.on('click', layer.id, function(e) {
                         if (e.features && e.features.length > 0) {
                             const properties = e.features[0].properties;
                             
                             let popupContent = '<div class="popup-content">';
-                            popupContent += '<h4>Transformer Bank</h4>';
+                            popupContent += `<h4>Infrastructure Asset</h4>`;
                             
-                            // Display properties
-                            const importantFields = ['id', 'objectid', 'name', 'type', 'status', 'voltage', 'capacity'];
-                            const displayedFields = [];
-                            
-                            // First, show important fields if they exist
-                            importantFields.forEach(field => {
-                                const value = properties[field] || properties[field.toUpperCase()] || properties[field.toLowerCase()];
-                                if (value !== null && value !== undefined && value !== '') {
-                                    popupContent += `<strong>${field}:</strong> ${value}<br>`;
-                                    displayedFields.push(field);
-                                }
-                            });
-                            
-                            // Then show other fields (up to 3 more)
-                            let otherFieldsShown = 0;
+                            // Show first 6 properties
+                            let propertiesShown = 0;
                             Object.keys(properties).forEach(key => {
-                                if (otherFieldsShown < 3 && !displayedFields.includes(key.toLowerCase()) && 
-                                    properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
+                                if (propertiesShown < 6 && properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
                                     popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                                    otherFieldsShown++;
+                                    propertiesShown++;
                                 }
                             });
                             
-                            // Look for audit URL in the properties
+                            // Look for audit URL
                             const auditUrl = properties.audit_url || properties.form_url || properties.url || 
                                            properties.audit_form || properties.link || properties.AUDIT_URL || 
                                            properties.FORM_URL || properties.URL;
@@ -216,8 +234,8 @@
                             if (auditUrl) {
                                 popupContent += '<button class="audit-button" onclick="window.open(\'' + auditUrl + '\', \'_blank\')">Start Audit</button>';
                             } else {
-                                const transformerId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
-                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + transformerId + '\')">Start Audit</button>';
+                                const assetId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
+                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + assetId + '\')">Start Audit</button>';
                             }
                             popupContent += '</div>';
 
@@ -239,50 +257,45 @@
                 }
             });
 
-            // Layer toggle functionality
-            // We'll need to identify the actual layer IDs from your custom style
+            // Layer toggle functionality - we'll identify layers by their IDs
             const layerToggleMap = {
-                'transformer-toggle': ['transformer', 'bank'], // Keywords to look for transformer layers
-                'meters-toggle': ['meter', 'electric'], // Keywords to look for meter layers  
-                'secondary-oh-toggle': ['overhead', 'oh', 'secondary_oh'], // Keywords for overhead lines
-                'secondary-ug-toggle': ['underground', 'ug', 'secondary_ug'] // Keywords for underground lines
+                'transformer-toggle': (layerId) => layerId.toLowerCase().includes('transformer') || layerId.toLowerCase().includes('bank'),
+                'meters-toggle': (layerId) => layerId.toLowerCase().includes('meter') || layerId.toLowerCase().includes('electric'),
+                'secondary-oh-toggle': (layerId) => layerId.toLowerCase().includes('overhead') || layerId.toLowerCase().includes('oh') || (layerId.toLowerCase().includes('secondary') && !layerId.toLowerCase().includes('ug') && !layerId.toLowerCase().includes('underground')),
+                'secondary-ug-toggle': (layerId) => layerId.toLowerCase().includes('underground') || layerId.toLowerCase().includes('ug') || (layerId.toLowerCase().includes('secondary') && (layerId.toLowerCase().includes('ug') || layerId.toLowerCase().includes('underground')))
             };
 
             Object.keys(layerToggleMap).forEach(toggleId => {
                 const toggle = document.getElementById(toggleId);
                 if (toggle) {
                     toggle.addEventListener('change', function(e) {
-                        const keywords = layerToggleMap[toggleId];
-                        const matchingLayers = layers.filter(layer => 
-                            keywords.some(keyword => layer.id.toLowerCase().includes(keyword.toLowerCase()))
-                        );
+                        const matchingLayers = layers.filter(layer => layerToggleMap[toggleId](layer.id));
                         
                         matchingLayers.forEach(layer => {
-                            map.setLayoutProperty(layer.id, 'visibility', 
-                                e.target.checked ? 'visible' : 'none');
+                            try {
+                                map.setLayoutProperty(layer.id, 'visibility', 
+                                    e.target.checked ? 'visible' : 'none');
+                            } catch (error) {
+                                console.log(`Could not toggle layer ${layer.id}:`, error.message);
+                            }
                         });
                         
-                        console.log(`${toggleId}: ${e.target.checked ? 'showing' : 'hiding'} layers:`, 
-                                  matchingLayers.map(l => l.id));
+                        updateDebugInfo(`${toggleId}: ${matchingLayers.length} layers ${e.target.checked ? 'shown' : 'hidden'}`);
                     });
                 }
             });
         });
 
-        // Function to start audit
-        function startAudit(transformerId) {
-            // For now, show alert - you'll replace this with your actual form URL
-            alert(`Starting audit for transformer: ${transformerId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
-            
-            // Example of how to redirect to a form:
-            // const formUrl = `https://your-audit-form.com?transformer_id=${transformerId}`;
-            // window.open(formUrl, '_blank');
-        }
-
-        // Optional: Log map errors
+        // Handle map errors
         map.on('error', function(e) {
+            updateDebugInfo('❌ Map error: ' + e.error.message);
             console.error('Map error:', e.error);
         });
+
+        // Function to start audit
+        function startAudit(assetId) {
+            alert(`Starting audit for asset: ${assetId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
+        }
     </script>
 </body>
 </html>
