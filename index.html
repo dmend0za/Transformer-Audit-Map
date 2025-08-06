@@ -2,193 +2,149 @@
 <html>
 <head>
     <meta charset='utf-8' />
-    <title>Transformer Audit System</title>
+    <title>Transformer Audit System - Debug</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
     <style>
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        .map-overlay {
+        .debug-panel {
             position: absolute;
-            top: 0;
-            left: 0;
-            background: rgba(255, 255, 255, 0.9);
-            margin: 10px;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
             border-radius: 5px;
-            padding: 10px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            z-index: 1;
-            max-width: 280px;
-        }
-        
-        .layer-control {
-            margin: 5px 0;
-        }
-        
-        .layer-control input {
-            margin-right: 5px;
-        }
-        
-        .popup-content {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
             font-size: 14px;
-            line-height: 1.4;
-            max-width: 300px;
         }
         
-        .audit-button {
+        .debug-panel h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .status-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .test-button {
             background: #007cbf;
             color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
-            margin-top: 10px;
-            font-size: 14px;
-            width: 100%;
-        }
-        
-        .audit-button:hover {
-            background: #005a8b;
-        }
-        
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            z-index: 1000;
-            display: none;
-        }
-        
-        .legend {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #ccc;
+            margin: 5px;
             font-size: 12px;
         }
         
-        .legend-item {
-            margin: 3px 0;
-            display: flex;
-            align-items: center;
-        }
-        
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-        
-        .legend-line {
-            width: 20px;
-            height: 3px;
-            margin-right: 6px;
-        }
-        
-        .debug-info {
-            background: #f0f0f0;
-            padding: 8px;
-            margin-top: 10px;
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 10px;
-            max-height: 100px;
-            overflow-y: auto;
+        .test-button:hover {
+            background: #005a8b;
         }
     </style>
 </head>
 <body>
     <div id='map'></div>
     
-    <div class='map-overlay'>
-        <h3>Layer Controls</h3>
-        <div class='layer-control'>
-            <input type='checkbox' id='transformer-toggle' checked>
-            <label for='transformer-toggle'>Transformer Banks</label>
-        </div>
-        <div class='layer-control'>
-            <input type='checkbox' id='meters-toggle' checked>
-            <label for='meters-toggle'>Electric Meters</label>
-        </div>
-        <div class='layer-control'>
-            <input type='checkbox' id='secondary-oh-toggle' checked>
-            <label for='secondary-oh-toggle'>Secondary Overhead</label>
-        </div>
-        <div class='layer-control'>
-            <input type='checkbox' id='secondary-ug-toggle' checked>
-            <label for='secondary-ug-toggle'>Secondary Underground</label>
-        </div>
-        
-        <div class='legend'>
-            <strong>Legend:</strong>
-            <div class='legend-item'>
-                <div class='legend-color' style='background-color: #ff6b35;'></div>
-                <span>Transformers</span>
-            </div>
-            <div class='legend-item'>
-                <div class='legend-color' style='background-color: #4a90e2;'></div>
-                <span>Meters</span>
-            </div>
-            <div class='legend-item'>
-                <div class='legend-line' style='background-color: #2ecc71;'></div>
-                <span>Overhead Lines</span>
-            </div>
-            <div class='legend-item'>
-                <div class='legend-line' style='background-color: #e74c3c; background-image: repeating-linear-gradient(90deg, transparent, transparent 2px, white 2px, white 4px);'></div>
-                <span>Underground Lines</span>
-            </div>
-        </div>
-        
-        <div class='debug-info' id='debug-info'>
-            <strong>Status:</strong> Loading...
+    <div class='debug-panel'>
+        <h3>🔧 Debug Panel</h3>
+        <div id='status-log'></div>
+        <div style='margin-top: 15px;'>
+            <button class='test-button' onclick='testCustomStyle()'>Test Custom Style</button>
+            <button class='test-button' onclick='testTokenAccess()'>Test Token</button>
         </div>
     </div>
-    
-    <div class='loading' id='loading'>Loading map data...</div>
 
     <script>
-        // Mapbox access token (your public token)
+        // Set token
         mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWUwZjA1ZXgwNGRhMmlvbHRscXk2NjVsIn0.VGVrTxKM9nEDk25TnFdcdg';
-
-        const debugInfo = document.getElementById('debug-info');
         
-        function updateDebugInfo(message) {
-            debugInfo.innerHTML += '<br>' + message;
+        const statusLog = document.getElementById('status-log');
+        
+        function addStatus(message, type = 'info') {
+            const statusItem = document.createElement('div');
+            statusItem.className = `status-item status-${type}`;
+            statusItem.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+            statusLog.appendChild(statusItem);
+            statusLog.scrollTop = statusLog.scrollHeight;
             console.log(message);
         }
 
-        // Initialize map - let's try with a basic style first to test
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/satellite-streets-v12', // Start with basic style
-            center: [-77.88424798136592, 35.734696861467626],
-            zoom: 15
-        });
+        // Test basic Mapbox GL JS functionality first
+        addStatus('🔍 Testing Mapbox GL JS...', 'info');
+        
+        if (typeof mapboxgl === 'undefined') {
+            addStatus('❌ Mapbox GL JS not loaded', 'error');
+        } else {
+            addStatus('✅ Mapbox GL JS loaded successfully', 'success');
+            addStatus(`Version: ${mapboxgl.version}`, 'info');
+        }
 
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl());
-        map.addControl(new mapboxgl.FullscreenControl());
+        // Test WebGL support
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+            addStatus('✅ WebGL is supported', 'success');
+        } else {
+            addStatus('❌ WebGL is not supported - this may cause issues', 'error');
+        }
 
-        // Show loading indicator
-        document.getElementById('loading').style.display = 'block';
-
-        map.on('load', function() {
-            document.getElementById('loading').style.display = 'none';
-            updateDebugInfo('✅ Basic map loaded successfully');
-
-            // Now let's try to load your custom style as additional sources
-            updateDebugInfo('🔄 Attempting to load your tilesets as GeoJSON...');
+        // Initialize map with minimal configuration
+        let map;
+        
+        try {
+            addStatus('🗺️ Initializing basic map...', 'info');
             
-            // Let's try a different approach - load your tilesets as GeoJSON if possible
-            // First, let's see if we can test the custom style URL
-            fetch('https://api.mapbox.com/styles/v1/fieldsense/cmdzysazb00hd01s9cm2v4td1?access_token=' + mapboxgl.accessToken)
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v11', // Simple style
+                center: [-77.88424798136592, 35.734696861467626],
+                zoom: 10
+            });
+
+            map.on('load', function() {
+                addStatus('✅ Basic map loaded successfully', 'success');
+            });
+
+            map.on('error', function(e) {
+                addStatus(`❌ Map error: ${e.error.message}`, 'error');
+            });
+
+        } catch (error) {
+            addStatus(`❌ Failed to initialize map: ${error.message}`, 'error');
+        }
+
+        // Function to test custom style
+        function testCustomStyle() {
+            addStatus('🔍 Testing custom style access...', 'info');
+            
+            const styleUrl = 'https://api.mapbox.com/styles/v1/fieldsense/cmdzysazb00hd01s9cm2v4td1';
+            
+            fetch(`${styleUrl}?access_token=${mapboxgl.accessToken}`)
                 .then(response => {
                     if (response.ok) {
                         return response.json();
@@ -196,40 +152,68 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 })
                 .then(styleData => {
-                    updateDebugInfo('✅ Custom style is accessible');
-                    updateDebugInfo(`Style has ${styleData.layers ? styleData.layers.length : 0} layers`);
+                    addStatus('✅ Custom style is accessible', 'success');
+                    addStatus(`Style has ${styleData.layers ? styleData.layers.length : 0} layers`, 'info');
                     
-                    // Now try to switch to the custom style
-                    updateDebugInfo('🔄 Switching to custom style...');
-                    try {
-                        map.setStyle('mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1');
-                        updateDebugInfo('✅ Custom style loaded');
-                    } catch (error) {
-                        updateDebugInfo('❌ Error switching to custom style: ' + error.message);
+                    if (styleData.sources) {
+                        const sourceNames = Object.keys(styleData.sources);
+                        addStatus(`Sources: ${sourceNames.join(', ')}`, 'info');
+                    }
+                    
+                    // Try to apply the custom style
+                    if (map && map.isStyleLoaded()) {
+                        addStatus('🔄 Applying custom style to map...', 'info');
+                        try {
+                            map.setStyle(`mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1`);
+                            
+                            map.once('styledata', function() {
+                                addStatus('✅ Custom style applied successfully', 'success');
+                                
+                                // List available layers
+                                const layers = map.getStyle().layers;
+                                addStatus(`Map now has ${layers.length} layers`, 'info');
+                                
+                                layers.forEach(layer => {
+                                    if (layer.source && typeof layer.source === 'string' && layer.source.includes('fieldsense')) {
+                                        addStatus(`Data layer found: ${layer.id} (${layer.type})`, 'success');
+                                    }
+                                });
+                            });
+                            
+                        } catch (styleError) {
+                            addStatus(`❌ Error applying custom style: ${styleError.message}`, 'error');
+                        }
                     }
                 })
                 .catch(error => {
-                    updateDebugInfo('❌ Cannot access custom style: ' + error.message);
-                    updateDebugInfo('ℹ️ Continuing with basic style...');
+                    addStatus(`❌ Cannot access custom style: ${error.message}`, 'error');
                 });
-
-            // Alternative: Try to add your data as individual sources with basic styling
-            updateDebugInfo('🔄 Trying alternative data loading...');
-            
-            // This is just for testing - remove the detailed layer detection for now
-            updateDebugInfo('Map ready for testing');
-        });
-
-        // Handle map errors
-        map.on('error', function(e) {
-            updateDebugInfo('❌ Map error: ' + e.error.message);
-            console.error('Map error:', e.error);
-        });
-
-        // Function to start audit
-        function startAudit(assetId) {
-            alert(`Starting audit for asset: ${assetId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
         }
+
+        // Function to test token access
+        function testTokenAccess() {
+            addStatus('🔍 Testing token permissions...', 'info');
+            
+            // Test basic token validity
+            fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/test.json?access_token=${mapboxgl.accessToken}&limit=1`)
+                .then(response => {
+                    if (response.ok) {
+                        addStatus('✅ Token is valid for basic API access', 'success');
+                    } else {
+                        addStatus(`❌ Token validation failed: ${response.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addStatus(`❌ Token test error: ${error.message}`, 'error');
+                });
+        }
+
+        // Auto-run initial tests
+        setTimeout(() => {
+            if (map) {
+                testTokenAccess();
+            }
+        }, 2000);
     </script>
 </body>
 </html>
