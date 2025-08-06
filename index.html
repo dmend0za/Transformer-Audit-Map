@@ -20,9 +20,7 @@
             padding: 10px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             z-index: 1;
-            max-width: 300px;
-            max-height: 400px;
-            overflow-y: auto;
+            max-width: 280px;
         }
         
         .layer-control {
@@ -36,6 +34,7 @@
         .popup-content {
             font-size: 14px;
             line-height: 1.4;
+            max-width: 300px;
         }
         
         .audit-button {
@@ -47,6 +46,7 @@
             cursor: pointer;
             margin-top: 10px;
             font-size: 14px;
+            width: 100%;
         }
         
         .audit-button:hover {
@@ -66,15 +66,30 @@
             display: none;
         }
         
-        .debug-info {
-            background: #f0f0f0;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 11px;
-            max-height: 200px;
-            overflow-y: auto;
+        .legend {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            margin: 3px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .legend-line {
+            width: 20px;
+            height: 3px;
+            margin-right: 6px;
         }
     </style>
 </head>
@@ -100,24 +115,39 @@
             <label for='secondary-ug-toggle'>Secondary Underground</label>
         </div>
         
-        <div class='debug-info' id='debug-info'>
-            <strong>Debug Info:</strong><br>
-            Loading tileset information...
+        <div class='legend'>
+            <strong>Legend:</strong>
+            <div class='legend-item'>
+                <div class='legend-color' style='background-color: #ff6b35;'></div>
+                <span>Transformers</span>
+            </div>
+            <div class='legend-item'>
+                <div class='legend-color' style='background-color: #4a90e2;'></div>
+                <span>Meters</span>
+            </div>
+            <div class='legend-item'>
+                <div class='legend-line' style='background-color: #2ecc71;'></div>
+                <span>Overhead Lines</span>
+            </div>
+            <div class='legend-item'>
+                <div class='legend-line' style='background-color: #e74c3c; background-image: repeating-linear-gradient(90deg, transparent, transparent 2px, white 2px, white 4px);'></div>
+                <span>Underground Lines</span>
+            </div>
         </div>
     </div>
     
     <div class='loading' id='loading'>Loading map data...</div>
 
     <script>
-        // Mapbox access token
-        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWR5emNseWgwNzk4MmtwcnUwejhvOGRpIn0.0V5SRvcXskZcqbtzeMkUnA';
+        // Mapbox access token (your public token)
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-        // Initialize map
+        // Initialize map with your custom style
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/satellite-streets-v12',
+            style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // Your custom style
             center: [-77.88424798136592, 35.734696861467626], // Your specified coordinates
-            zoom: 12 // Increased zoom for better detail
+            zoom: 12
         });
 
         // Add navigation controls
@@ -126,241 +156,132 @@
 
         // Show loading indicator
         document.getElementById('loading').style.display = 'block';
-        
-        // Debug info element
-        const debugInfo = document.getElementById('debug-info');
-        
-        // Function to update debug info
-        function updateDebugInfo(message) {
-            debugInfo.innerHTML += message + '<br>';
-            console.log(message);
-        }
 
         map.on('load', function() {
+            // Hide loading indicator
             document.getElementById('loading').style.display = 'none';
-            updateDebugInfo('Map loaded successfully');
+            console.log('Map with custom style loaded successfully');
 
-            // Add sources and inspect them
-            const tilesets = [
-                { id: 'transformers', mapboxId: 'fieldsense.9i382k93', name: 'Transformer Banks' },
-                { id: 'meters', mapboxId: 'fieldsense.00srtpq5', name: 'Electric Meters' },
-                { id: 'secondary-oh', mapboxId: 'fieldsense.0wvcayxk', name: 'Secondary OH' },
-                { id: 'secondary-ug', mapboxId: 'fieldsense.cgp8b9gy', name: 'Secondary UG' }
-            ];
+            // Get all layer IDs from the style to identify your data layers
+            const layers = map.getStyle().layers;
+            console.log('Available layers:', layers.map(layer => layer.id));
 
-            tilesets.forEach(tileset => {
-                try {
-                    map.addSource(tileset.id, {
-                        'type': 'vector',
-                        'url': `mapbox://${tileset.mapboxId}`
-                    });
-                    updateDebugInfo(`✓ Added source: ${tileset.name}`);
-                    
-                    // Try to get source info
-                    setTimeout(() => {
-                        const source = map.getSource(tileset.id);
-                        if (source && source.vectorLayerIds) {
-                            updateDebugInfo(`${tileset.name} layers: ${source.vectorLayerIds.join(', ')}`);
+            // Find transformer layers (look for layers that might contain transformer data)
+            const transformerLayers = layers.filter(layer => 
+                layer.id.toLowerCase().includes('transformer') ||
+                layer.id.toLowerCase().includes('bank') ||
+                (layer.type === 'circle' && layer.source && layer.source.includes('fieldsense'))
+            );
+
+            console.log('Potential transformer layers found:', transformerLayers.map(l => l.id));
+
+            // Add click events to transformer layers
+            transformerLayers.forEach(layer => {
+                if (layer.type === 'circle' || layer.type === 'symbol') {
+                    map.on('click', layer.id, function(e) {
+                        if (e.features && e.features.length > 0) {
+                            const properties = e.features[0].properties;
+                            
+                            let popupContent = '<div class="popup-content">';
+                            popupContent += '<h4>Transformer Bank</h4>';
+                            
+                            // Display properties
+                            const importantFields = ['id', 'objectid', 'name', 'type', 'status', 'voltage', 'capacity'];
+                            const displayedFields = [];
+                            
+                            // First, show important fields if they exist
+                            importantFields.forEach(field => {
+                                const value = properties[field] || properties[field.toUpperCase()] || properties[field.toLowerCase()];
+                                if (value !== null && value !== undefined && value !== '') {
+                                    popupContent += `<strong>${field}:</strong> ${value}<br>`;
+                                    displayedFields.push(field);
+                                }
+                            });
+                            
+                            // Then show other fields (up to 3 more)
+                            let otherFieldsShown = 0;
+                            Object.keys(properties).forEach(key => {
+                                if (otherFieldsShown < 3 && !displayedFields.includes(key.toLowerCase()) && 
+                                    properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
+                                    popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                                    otherFieldsShown++;
+                                }
+                            });
+                            
+                            // Look for audit URL in the properties
+                            const auditUrl = properties.audit_url || properties.form_url || properties.url || 
+                                           properties.audit_form || properties.link || properties.AUDIT_URL || 
+                                           properties.FORM_URL || properties.URL;
+                            
+                            if (auditUrl) {
+                                popupContent += '<button class="audit-button" onclick="window.open(\'' + auditUrl + '\', \'_blank\')">Start Audit</button>';
+                            } else {
+                                const transformerId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
+                                popupContent += '<button class="audit-button" onclick="startAudit(\'' + transformerId + '\')">Start Audit</button>';
+                            }
+                            popupContent += '</div>';
+
+                            new mapboxgl.Popup()
+                                .setLngLat(e.lngLat)
+                                .setHTML(popupContent)
+                                .addTo(map);
                         }
-                    }, 2000);
-                    
-                } catch (error) {
-                    updateDebugInfo(`✗ Error adding ${tileset.name}: ${error.message}`);
+                    });
+
+                    // Change cursor on hover
+                    map.on('mouseenter', layer.id, function() {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+
+                    map.on('mouseleave', layer.id, function() {
+                        map.getCanvas().style.cursor = '';
+                    });
                 }
             });
 
-            // Try different possible source-layer names for all layers
-            const layerTests = [
-                {
-                    source: 'transformers',
-                    possibleNames: [
-                        'transformer_banks2',
-                        'transformer-banks2', 
-                        'transformerbanks2',
-                        'transformer_banks',
-                        'transformers',
-                        'electric_meters2', // Sometimes files get mixed up
-                        'default'
-                    ],
-                    displayName: 'Transformers',
-                    color: '#ff6b35'
-                },
-                {
-                    source: 'meters',
-                    possibleNames: [
-                        'electric_meters2',
-                        'electric-meters2',
-                        'electricmeters2',
-                        'electric_meters',
-                        'meters',
-                        'transformer_banks2', // Check for mix-ups
-                        'default'
-                    ],
-                    displayName: 'Meters',
-                    color: '#4a90e2'
-                },
-                {
-                    source: 'secondary-oh',
-                    possibleNames: [
-                        'secondary_OH2',
-                        'secondary-OH2',
-                        'secondaryOH2',
-                        'secondary_oh2',
-                        'secondary-oh2',
-                        'secondaryoh2',
-                        'secondary_OH',
-                        'overhead',
-                        'default'
-                    ],
-                    displayName: 'Secondary OH',
-                    color: '#2ecc71'
-                },
-                {
-                    source: 'secondary-ug',
-                    possibleNames: [
-                        'secondary_UG2',
-                        'secondary-UG2',
-                        'secondaryUG2',
-                        'secondary_ug2',
-                        'secondary-ug2',
-                        'secondaryug2',
-                        'secondary_UG',
-                        'underground',
-                        'default'
-                    ],
-                    displayName: 'Secondary UG',
-                    color: '#e74c3c'
-                }
-            ];
+            // Layer toggle functionality
+            // We'll need to identify the actual layer IDs from your custom style
+            const layerToggleMap = {
+                'transformer-toggle': ['transformer', 'bank'], // Keywords to look for transformer layers
+                'meters-toggle': ['meter', 'electric'], // Keywords to look for meter layers  
+                'secondary-oh-toggle': ['overhead', 'oh', 'secondary_oh'], // Keywords for overhead lines
+                'secondary-ug-toggle': ['underground', 'ug', 'secondary_ug'] // Keywords for underground lines
+            };
 
-            // Test each layer type
-            layerTests.forEach((layerTest, testIndex) => {
-                let layerFound = false;
-                
-                layerTest.possibleNames.forEach((layerName, nameIndex) => {
-                    if (layerFound) return;
-                    
-                    const layerId = `${layerTest.source}-test-${nameIndex}`;
-                    
-                    try {
-                        map.addLayer({
-                            'id': layerId,
-                            'type': layerTest.source.includes('secondary') ? 'line' : 'circle',
-                            'source': layerTest.source,
-                            'source-layer': layerName,
-                            'paint': layerTest.source.includes('secondary') ? {
-                                'line-color': layerTest.color,
-                                'line-width': 2,
-                                'line-opacity': 0.8
-                            } : {
-                                'circle-radius': 6,
-                                'circle-color': layerTest.color,
-                                'circle-stroke-color': '#ffffff',
-                                'circle-stroke-width': 1,
-                                'circle-opacity': 0.8
-                            }
+            Object.keys(layerToggleMap).forEach(toggleId => {
+                const toggle = document.getElementById(toggleId);
+                if (toggle) {
+                    toggle.addEventListener('change', function(e) {
+                        const keywords = layerToggleMap[toggleId];
+                        const matchingLayers = layers.filter(layer => 
+                            keywords.some(keyword => layer.id.toLowerCase().includes(keyword.toLowerCase()))
+                        );
+                        
+                        matchingLayers.forEach(layer => {
+                            map.setLayoutProperty(layer.id, 'visibility', 
+                                e.target.checked ? 'visible' : 'none');
                         });
                         
-                        // Check if layer has features after a delay
-                        setTimeout(() => {
-                            try {
-                                const features = map.querySourceFeatures(layerTest.source, {
-                                    sourceLayer: layerName
-                                });
-                                
-                                if (features && features.length > 0) {
-                                    updateDebugInfo(`✓ FOUND ${layerTest.displayName}: "${layerName}" (${features.length} features)`);
-                                    layerFound = true;
-                                    
-                                    // Remove other test layers for this source
-                                    layerTest.possibleNames.forEach((_, otherIndex) => {
-                                        if (otherIndex !== nameIndex) {
-                                            const otherLayerId = `${layerTest.source}-test-${otherIndex}`;
-                                            if (map.getLayer(otherLayerId)) {
-                                                map.removeLayer(otherLayerId);
-                                            }
-                                        }
-                                    });
-                                    
-                                    // Add click event for transformers
-                                    if (layerTest.source === 'transformers') {
-                                        map.on('click', layerId, function(e) {
-                                            const properties = e.features[0].properties;
-                                            
-                                            let popupContent = '<div class="popup-content">';
-                                            popupContent += '<h4>Transformer Bank</h4>';
-                                            
-                                            Object.keys(properties).slice(0, 5).forEach(key => {
-                                                if (properties[key] !== null && properties[key] !== '') {
-                                                    popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                                                }
-                                            });
-                                            
-                                            popupContent += '<button class="audit-button" onclick="startAudit(\'' + 
-                                                (properties.id || properties.objectid || 'unknown') + '\')">Start Audit</button>';
-                                            popupContent += '</div>';
-
-                                            new mapboxgl.Popup()
-                                                .setLngLat(e.lngLat)
-                                                .setHTML(popupContent)
-                                                .addTo(map);
-                                        });
-                                        
-                                        map.on('mouseenter', layerId, function() {
-                                            map.getCanvas().style.cursor = 'pointer';
-                                        });
-
-                                        map.on('mouseleave', layerId, function() {
-                                            map.getCanvas().style.cursor = '';
-                                        });
-                                    }
-                                    
-                                } else {
-                                    updateDebugInfo(`✗ No features: ${layerTest.displayName} - "${layerName}"`);
-                                    if (map.getLayer(layerId)) {
-                                        map.removeLayer(layerId);
-                                    }
-                                }
-                            } catch (error) {
-                                updateDebugInfo(`✗ Error querying ${layerTest.displayName} - "${layerName}": ${error.message}`);
-                                if (map.getLayer(layerId)) {
-                                    map.removeLayer(layerId);
-                                }
-                            }
-                        }, 2000 + (testIndex * 1000)); // Stagger the tests
-                        
-                    } catch (error) {
-                        updateDebugInfo(`✗ Error adding ${layerTest.displayName} layer "${layerName}": ${error.message}`);
-                    }
-                });
-            });
-
-            // Also try to inspect what's actually in the tileset
-            setTimeout(() => {
-                updateDebugInfo('--- Inspecting tileset contents ---');
-                try {
-                    const source = map.getSource('transformers');
-                    if (source) {
-                        updateDebugInfo(`Source type: ${source.type}`);
-                        if (source.vectorLayerIds) {
-                            updateDebugInfo(`Available layers: ${source.vectorLayerIds.join(', ')}`);
-                        }
-                    }
-                } catch (error) {
-                    updateDebugInfo(`Error inspecting source: ${error.message}`);
+                        console.log(`${toggleId}: ${e.target.checked ? 'showing' : 'hiding'} layers:`, 
+                                  matchingLayers.map(l => l.id));
+                    });
                 }
-            }, 4000);
+            });
         });
 
         // Function to start audit
         function startAudit(transformerId) {
+            // For now, show alert - you'll replace this with your actual form URL
             alert(`Starting audit for transformer: ${transformerId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
+            
+            // Example of how to redirect to a form:
+            // const formUrl = `https://your-audit-form.com?transformer_id=${transformerId}`;
+            // window.open(formUrl, '_blank');
         }
 
-        // Simple layer toggles for now
-        document.getElementById('transformer-toggle').addEventListener('change', function(e) {
-            // We'll update this once we find the correct layer name
-            updateDebugInfo(`Transformer toggle: ${e.target.checked}`);
+        // Optional: Log map errors
+        map.on('error', function(e) {
+            console.error('Map error:', e.error);
         });
     </script>
 </body>
