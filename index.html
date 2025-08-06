@@ -16,7 +16,7 @@
             left: 10px;
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             max-width: 280px;
             z-index: 1000;
@@ -59,40 +59,15 @@
             background: #005a8b;
         }
         
-        .legend {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #ccc;
-            font-size: 12px;
-        }
-        
-        .legend-item {
-            margin: 4px 0;
-            display: flex;
-            align-items: center;
-        }
-        
-        .legend-symbol {
-            width: 16px;
-            height: 16px;
-            margin-right: 8px;
-            border-radius: 50%;
-        }
-        
-        .legend-line {
-            width: 20px;
-            height: 3px;
-            margin-right: 8px;
-        }
-        
         .status-panel {
             background: #f8f9fa;
             padding: 8px;
             margin-top: 10px;
-            border-radius: 3px;
+            border-radius: 4px;
             font-size: 11px;
-            max-height: 100px;
+            max-height: 120px;
             overflow-y: auto;
+            border: 1px solid #dee2e6;
         }
         
         .loading {
@@ -105,6 +80,7 @@
             padding: 20px;
             border-radius: 5px;
             z-index: 2000;
+            text-align: center;
         }
     </style>
 </head>
@@ -112,7 +88,7 @@
     <div id='map'></div>
     
     <div class='map-overlay'>
-        <h3 style='margin: 0 0 15px 0;'>🔧 Transformer Audit</h3>
+        <h3 style='margin: 0 0 15px 0; color: #333;'>⚡ Transformer Audit</h3>
         
         <div class='layer-control'>
             <input type='checkbox' id='transformer-toggle' checked>
@@ -132,13 +108,14 @@
         </div>
         
         <div class='status-panel' id='status-log'>
-            <strong>Status:</strong> Loading...
+            <strong>Loading Status:</strong><br>
+            Initializing map...
         </div>
     </div>
     
     <div class='loading' id='loading'>
-        <div>Loading utility data...</div>
-        <div style='font-size: 12px; margin-top: 10px;'>This may take a moment</div>
+        <div>🗺️ Loading Utility Infrastructure</div>
+        <div style='font-size: 12px; margin-top: 10px; opacity: 0.8;'>Connecting to your data...</div>
     </div>
 
     <script>
@@ -146,12 +123,12 @@
         
         const statusLog = document.getElementById('status-log');
         function updateStatus(message) {
-            statusLog.innerHTML += '<br>' + message;
+            statusLog.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
             statusLog.scrollTop = statusLog.scrollHeight;
             console.log(message);
         }
 
-        // Initialize map with clean base style
+        // Initialize map with satellite view
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/satellite-streets-v12',
@@ -160,255 +137,268 @@
         });
 
         // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl());
-        map.addControl(new mapboxgl.FullscreenControl());
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
         map.on('load', function() {
             document.getElementById('loading').style.display = 'none';
-            updateStatus('✅ Map loaded');
+            updateStatus('✅ Base map loaded');
             
-            // Now we'll create a clean custom style by fetching your data and adding clean layers
-            updateStatus('📡 Loading utility data...');
+            // Add your data sources directly
+            updateStatus('📡 Connecting to utility data...');
             
-            // Get your custom style to extract the source configurations
-            fetch('https://api.mapbox.com/styles/v1/fieldsense/cmdzysazb00hd01s9cm2v4td1?access_token=' + mapboxgl.accessToken)
-                .then(response => response.json())
-                .then(styleData => {
-                    updateStatus('✅ Style data retrieved');
-                    
-                    // Extract clean source definitions
-                    if (styleData.sources) {
-                        Object.keys(styleData.sources).forEach(sourceName => {
-                            const source = styleData.sources[sourceName];
-                            if (source.type === 'vector' && source.url) {
-                                try {
-                                    map.addSource(sourceName, {
-                                        type: 'vector',
-                                        url: source.url
-                                    });
-                                    updateStatus(`✅ Added source: ${sourceName}`);
-                                } catch (error) {
-                                    updateStatus(`❌ Error adding source ${sourceName}: ${error.message}`);
-                                }
-                            }
-                        });
-                    }
-                    
-                    // Add clean, simple layers for your data
-                    addCleanLayers();
-                })
-                .catch(error => {
-                    updateStatus('❌ Error loading style: ' + error.message);
-                    // Fallback: try adding sources directly
-                    addSourcesDirectly();
-                });
-        });
-        
-        function addSourcesDirectly() {
-            updateStatus('🔄 Trying direct source loading...');
-            
-            const sources = [
-                { id: 'transformers', tilesetId: 'fieldsense.9i382k93', name: 'Transformers' },
-                { id: 'meters', tilesetId: 'fieldsense.00srtpq5', name: 'Meters' },
-                { id: 'secondary-oh', tilesetId: 'fieldsense.0wvcayxk', name: 'Secondary OH' },
-                { id: 'secondary-ug', tilesetId: 'fieldsense.cgp8b9gy', name: 'Secondary UG' }
+            const dataSources = [
+                { 
+                    id: 'transformers-src', 
+                    url: 'mapbox://fieldsense.9i382k93',
+                    name: 'Transformers',
+                    sourceLayerCandidates: ['transformer_banks2', 'transformer-banks2', 'transformerbanks2', 'default']
+                },
+                { 
+                    id: 'meters-src', 
+                    url: 'mapbox://fieldsense.00srtpq5',
+                    name: 'Meters',
+                    sourceLayerCandidates: ['electric_meters2', 'electric-meters2', 'electricmeters2', 'default']
+                },
+                { 
+                    id: 'secondary-oh-src', 
+                    url: 'mapbox://fieldsense.0wvcayxk',
+                    name: 'Secondary OH',
+                    sourceLayerCandidates: ['secondary_OH2', 'secondary-OH2', 'secondaryOH2', 'secondary_oh2', 'default']
+                },
+                { 
+                    id: 'secondary-ug-src', 
+                    url: 'mapbox://fieldsense.cgp8b9gy',
+                    name: 'Secondary UG',
+                    sourceLayerCandidates: ['secondary_UG2', 'secondary-UG2', 'secondaryUG2', 'secondary_ug2', 'default']
+                }
             ];
-            
-            sources.forEach(source => {
+
+            // Add all sources
+            dataSources.forEach(source => {
                 try {
                     map.addSource(source.id, {
                         type: 'vector',
-                        url: `mapbox://${source.tilesetId}`
+                        url: source.url
                     });
-                    updateStatus(`✅ Added ${source.name}`);
+                    updateStatus(`✅ Added ${source.name} source`);
                 } catch (error) {
-                    updateStatus(`❌ Error adding ${source.name}: ${error.message}`);
+                    updateStatus(`❌ Failed to add ${source.name}: ${error.message}`);
                 }
             });
-            
-            addCleanLayers();
-        }
-        
-        function addCleanLayers() {
-            updateStatus('🎨 Adding clean layers...');
-            
-            // Try different source-layer names for each tileset
-            const layerConfigs = [
-                {
-                    id: 'transformer-banks-layer',
-                    source: 'transformers',
-                    sourceLayerOptions: ['transformer_banks2', 'transformer-banks2', 'transformerbanks2', 'default'],
-                    type: 'circle',
-                    paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8, 20, 12],
-                        'circle-color': '#ff6b35',
-                        'circle-stroke-color': '#ffffff',
-                        'circle-stroke-width': 2,
-                        'circle-opacity': 0.9
-                    }
-                },
-                {
-                    id: 'electric-meters-layer',
-                    source: 'meters',
-                    sourceLayerOptions: ['electric_meters2', 'electric-meters2', 'electricmeters2', 'default'],
-                    type: 'circle',
-                    paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 6],
-                        'circle-color': '#4a90e2',
-                        'circle-opacity': 0.8
-                    },
-                    minzoom: 14
-                },
-                {
-                    id: 'secondary-overhead-layer',
-                    source: 'secondary-oh',
-                    sourceLayerOptions: ['secondary_OH2', 'secondary-OH2', 'secondaryOH2', 'secondary_oh2', 'default'],
-                    type: 'line',
-                    paint: {
-                        'line-color': '#2ecc71',
-                        'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 18, 3],
-                        'line-opacity': 0.8
-                    },
-                    minzoom: 12
-                },
-                {
-                    id: 'secondary-underground-layer',
-                    source: 'secondary-ug',
-                    sourceLayerOptions: ['secondary_UG2', 'secondary-UG2', 'secondaryUG2', 'secondary_ug2', 'default'],
-                    type: 'line',
-                    paint: {
-                        'line-color': '#e74c3c',
-                        'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 18, 3],
-                        'line-opacity': 0.8,
-                        'line-dasharray': [2, 2]
-                    },
-                    minzoom: 12
-                }
-            ];
-            
-            layerConfigs.forEach(config => {
-                let layerAdded = false;
-                
-                config.sourceLayerOptions.forEach(sourceLayer => {
-                    if (layerAdded) return;
-                    
-                    try {
-                        const layerDef = {
-                            id: config.id,
-                            type: config.type,
-                            source: config.source,
-                            'source-layer': sourceLayer,
-                            paint: config.paint
-                        };
-                        
-                        if (config.minzoom) layerDef.minzoom = config.minzoom;
-                        
-                        map.addLayer(layerDef);
-                        
-                        // Test if layer has data
-                        setTimeout(() => {
-                            try {
-                                const features = map.querySourceFeatures(config.source, {
-                                    sourceLayer: sourceLayer
-                                });
-                                
-                                if (features && features.length > 0) {
-                                    updateStatus(`✅ ${config.id}: "${sourceLayer}" (${features.length} features)`);
-                                    layerAdded = true;
-                                } else {
-                                    map.removeLayer(config.id);
-                                }
-                            } catch (e) {
-                                if (map.getLayer(config.id)) {
-                                    map.removeLayer(config.id);
-                                }
-                            }
-                        }, 1000);
-                        
-                    } catch (error) {
-                        // Layer add failed, try next source-layer name
-                    }
-                });
-            });
-            
-            // Add click events to transformer layer
+
+            // Wait a moment for sources to load, then add layers
             setTimeout(() => {
-                if (map.getLayer('transformer-banks-layer')) {
-                    map.on('click', 'transformer-banks-layer', function(e) {
-                        if (e.features && e.features.length > 0) {
-                            const properties = e.features[0].properties;
-                            
-                            let popupContent = '<div class="popup-content">';
-                            popupContent += '<h4>🔧 Transformer Bank</h4>';
-                            
-                            // Show key properties
-                            let propsShown = 0;
-                            Object.keys(properties).forEach(key => {
-                                if (propsShown < 6 && properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
-                                    popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                                    propsShown++;
-                                }
+                addDataLayers(dataSources);
+            }, 1500);
+        });
+
+        function addDataLayers(dataSources) {
+            updateStatus('🎨 Creating map layers...');
+            
+            // Transformer Banks Layer
+            addLayerWithFallback({
+                sourceConfig: dataSources[0],
+                layerId: 'transformers-layer',
+                layerType: 'circle',
+                paint: {
+                    'circle-radius': [
+                        'interpolate', ['linear'], ['zoom'],
+                        12, 5,
+                        16, 8,
+                        20, 12
+                    ],
+                    'circle-color': '#ff6b35',
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 2,
+                    'circle-opacity': 0.9
+                }
+            });
+
+            // Electric Meters Layer  
+            addLayerWithFallback({
+                sourceConfig: dataSources[1],
+                layerId: 'meters-layer',
+                layerType: 'circle',
+                paint: {
+                    'circle-radius': [
+                        'interpolate', ['linear'], ['zoom'],
+                        14, 2,
+                        18, 6
+                    ],
+                    'circle-color': '#4a90e2',
+                    'circle-opacity': 0.8
+                },
+                minzoom: 14
+            });
+
+            // Secondary Overhead Lines
+            addLayerWithFallback({
+                sourceConfig: dataSources[2],
+                layerId: 'secondary-oh-layer',
+                layerType: 'line',
+                paint: {
+                    'line-color': '#2ecc71',
+                    'line-width': [
+                        'interpolate', ['linear'], ['zoom'],
+                        12, 1.5,
+                        18, 4
+                    ],
+                    'line-opacity': 0.8
+                },
+                minzoom: 12
+            });
+
+            // Secondary Underground Lines
+            addLayerWithFallback({
+                sourceConfig: dataSources[3],
+                layerId: 'secondary-ug-layer',
+                layerType: 'line',
+                paint: {
+                    'line-color': '#e74c3c',
+                    'line-width': [
+                        'interpolate', ['linear'], ['zoom'],
+                        12, 1.5,
+                        18, 4
+                    ],
+                    'line-opacity': 0.8,
+                    'line-dasharray': [3, 2]
+                },
+                minzoom: 12
+            });
+
+            // Setup interactions after layers are added
+            setTimeout(() => {
+                setupMapInteractions();
+                setupLayerControls();
+                updateStatus('🎯 Map ready for auditing!');
+            }, 2000);
+        }
+
+        function addLayerWithFallback(config) {
+            let layerAdded = false;
+            
+            config.sourceConfig.sourceLayerCandidates.forEach((sourceLayer, index) => {
+                if (layerAdded) return;
+                
+                try {
+                    const layerDef = {
+                        id: config.layerId,
+                        type: config.layerType,
+                        source: config.sourceConfig.id,
+                        'source-layer': sourceLayer,
+                        paint: config.paint
+                    };
+                    
+                    if (config.minzoom) layerDef.minzoom = config.minzoom;
+                    
+                    map.addLayer(layerDef);
+                    
+                    // Test if the layer has data
+                    setTimeout(() => {
+                        try {
+                            const features = map.querySourceFeatures(config.sourceConfig.id, {
+                                sourceLayer: sourceLayer
                             });
                             
-                            // Check for audit URL
-                            const auditUrl = properties.audit_url || properties.form_url || properties.url || properties.AUDIT_URL;
-                            
-                            if (auditUrl) {
-                                popupContent += `<button class="audit-button" onclick="window.open('${auditUrl}', '_blank')">Start Audit</button>`;
+                            if (features && features.length > 0) {
+                                updateStatus(`✅ ${config.sourceConfig.name}: ${features.length} features found`);
+                                layerAdded = true;
                             } else {
-                                const assetId = properties.id || properties.objectid || properties.ID || 'unknown';
-                                popupContent += `<button class="audit-button" onclick="startAudit('${assetId}')">Start Audit</button>`;
+                                // No features found, remove this layer attempt
+                                if (map.getLayer(config.layerId)) {
+                                    map.removeLayer(config.layerId);
+                                }
                             }
-                            popupContent += '</div>';
-
-                            new mapboxgl.Popup()
-                                .setLngLat(e.lngLat)
-                                .setHTML(popupContent)
-                                .addTo(map);
+                        } catch (queryError) {
+                            // Query failed, remove layer
+                            if (map.getLayer(config.layerId)) {
+                                map.removeLayer(config.layerId);
+                            }
                         }
-                    });
-
-                    map.on('mouseenter', 'transformer-banks-layer', () => {
-                        map.getCanvas().style.cursor = 'pointer';
-                    });
-
-                    map.on('mouseleave', 'transformer-banks-layer', () => {
-                        map.getCanvas().style.cursor = '';
-                    });
-                }
-            }, 2000);
-            
-            setupLayerToggles();
-        }
-        
-        function setupLayerToggles() {
-            const toggles = [
-                { id: 'transformer-toggle', layer: 'transformer-banks-layer' },
-                { id: 'meters-toggle', layer: 'electric-meters-layer' },
-                { id: 'secondary-oh-toggle', layer: 'secondary-overhead-layer' },
-                { id: 'secondary-ug-toggle', layer: 'secondary-underground-layer' }
-            ];
-            
-            toggles.forEach(toggle => {
-                const checkbox = document.getElementById(toggle.id);
-                if (checkbox) {
-                    checkbox.addEventListener('change', (e) => {
-                        if (map.getLayer(toggle.layer)) {
-                            map.setLayoutProperty(toggle.layer, 'visibility', 
-                                e.target.checked ? 'visible' : 'none');
-                        }
-                    });
+                    }, 500 + (index * 200));
+                    
+                } catch (addError) {
+                    // Layer add failed, will try next source-layer candidate
                 }
             });
         }
-        
-        function startAudit(assetId) {
-            alert(`Starting audit for asset: ${assetId}\n\nThis will redirect to your audit form once URLs are embedded in the data.`);
+
+        function setupMapInteractions() {
+            // Add click handler for transformers
+            if (map.getLayer('transformers-layer')) {
+                map.on('click', 'transformers-layer', function(e) {
+                    const properties = e.features[0].properties;
+                    
+                    let popupContent = '<div class="popup-content">';
+                    popupContent += '<h4>🔧 Transformer Bank</h4>';
+                    
+                    // Display key properties
+                    let propsShown = 0;
+                    Object.keys(properties).forEach(key => {
+                        if (propsShown < 5 && properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
+                            popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+                            propsShown++;
+                        }
+                    });
+                    
+                    // Look for audit URL
+                    const auditUrl = properties.audit_url || properties.form_url || properties.url || 
+                                   properties.AUDIT_URL || properties.FORM_URL || properties.URL;
+                    
+                    if (auditUrl) {
+                        popupContent += `<button class="audit-button" onclick="window.open('${auditUrl}', '_blank')">Start Audit</button>`;
+                    } else {
+                        const assetId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
+                        popupContent += `<button class="audit-button" onclick="startAudit('${assetId}')">Start Audit</button>`;
+                    }
+                    popupContent += '</div>';
+
+                    new mapboxgl.Popup({ closeOnClick: true })
+                        .setLngLat(e.lngLat)
+                        .setHTML(popupContent)
+                        .addTo(map);
+                });
+
+                map.on('mouseenter', 'transformers-layer', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+
+                map.on('mouseleave', 'transformers-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+
+                updateStatus('✅ Transformer click events ready');
+            }
         }
-        
+
+        function setupLayerControls() {
+            const layerControls = [
+                { toggleId: 'transformer-toggle', layerId: 'transformers-layer' },
+                { toggleId: 'meters-toggle', layerId: 'meters-layer' },
+                { toggleId: 'secondary-oh-toggle', layerId: 'secondary-oh-layer' },
+                { toggleId: 'secondary-ug-toggle', layerId: 'secondary-ug-layer' }
+            ];
+
+            layerControls.forEach(control => {
+                const toggle = document.getElementById(control.toggleId);
+                if (toggle && map.getLayer(control.layerId)) {
+                    toggle.addEventListener('change', function(e) {
+                        map.setLayoutProperty(control.layerId, 'visibility', 
+                            e.target.checked ? 'visible' : 'none');
+                    });
+                    updateStatus(`✅ ${control.toggleId} control active`);
+                }
+            });
+        }
+
+        function startAudit(assetId) {
+            alert(`🔧 Starting audit for transformer: ${assetId}\n\nThis will redirect to your audit form once URLs are embedded in the transformer data.`);
+        }
+
         // Error handling
-        map.on('error', (e) => {
-            updateStatus('❌ ' + e.error.message);
+        map.on('error', function(e) {
+            updateStatus(`❌ ${e.error.message}`);
         });
     </script>
 </body>
