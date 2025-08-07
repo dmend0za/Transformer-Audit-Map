@@ -167,6 +167,9 @@
             color: #2d3748;
             font-size: 13px;
             font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
         }
         
         .popup-button {
@@ -323,6 +326,10 @@
             <label for="filter-underground">Underground Transformers</label>
         </div>
         <div class="filter-checkbox">
+            <input type="checkbox" id="filter-meters" checked>
+            <label for="filter-meters">Electric Meters</label>
+        </div>
+        <div class="filter-checkbox">
             <input type="checkbox" id="filter-oh-feeders" checked>
             <label for="filter-oh-feeders">Overhead Feeders</label>
         </div>
@@ -342,6 +349,10 @@
         <div class="legend-item">
             <div class="legend-icon underground-icon"></div>
             <span>Underground Transformer</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-icon" style="background: linear-gradient(135deg, #805AD5, #6B46C1); width: 20px; height: 20px; border-radius: 50%;"></div>
+            <span>Electric Meter</span>
         </div>
         <div class="legend-item">
             <div class="legend-icon oh-feeder-icon"></div>
@@ -384,13 +395,11 @@
         // Add fullscreen control
         map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
         
-        // Function to create popup content
-        function createPopupContent(properties) {
-            const type = properties.Type || properties.type || 'Unknown';
-            const style = properties.Style || properties.style || 'Unknown';
-            const isUnderground = type.toLowerCase().includes('underground') || 
-                                 style.toLowerCase().includes('pad') ||
-                                 style.toLowerCase().includes('ug');
+        // Function to create popup content for transformers
+        function createTransformerPopupContent(properties) {
+            // Get transformer type from SUBTYPEC_1 field
+            const transformerType = properties.SUBTYPEC_1 || 'Unknown Type';
+            const isUnderground = transformerType.toLowerCase().includes('underground');
             
             const headerText = isUnderground ? 'Underground Transformer' : 'Overhead Transformer';
             
@@ -399,66 +408,65 @@
                 <div class="popup-content">
             `;
             
-            // Add transformer details
-            if (properties.Transformer_ID || properties.transformer_id) {
+            // Add transformer details with proper field names
+            if (properties.FID) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">Transformer ID:</span>
-                        <span class="popup-value">${properties.Transformer_ID || properties.transformer_id}</span>
+                        <span class="popup-value">${properties.FID}</span>
                     </div>
                 `;
             }
             
-            if (properties.Feeder || properties.feeder) {
+            if (properties.FEEDERID) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">Feeder:</span>
-                        <span class="popup-value">${properties.Feeder || properties.feeder}</span>
+                        <span class="popup-value">${properties.FEEDERID}</span>
                     </div>
                 `;
             }
             
-            if (properties.KVA || properties.kva) {
+            if (properties.BANKKVA) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">KVA (Size):</span>
-                        <span class="popup-value">${properties.KVA || properties.kva}</span>
+                        <span class="popup-value">${properties.BANKKVA}</span>
                     </div>
                 `;
             }
             
-            if (type !== 'Unknown') {
+            if (properties.SUBTYPEC_1) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">Type:</span>
-                        <span class="popup-value">${type}</span>
+                        <span class="popup-value">${properties.SUBTYPEC_1}</span>
                     </div>
                 `;
             }
             
-            if (style !== 'Unknown') {
+            if (properties.COMMENTS_C) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">Style:</span>
-                        <span class="popup-value">${style}</span>
+                        <span class="popup-value">${properties.COMMENTS_C}</span>
                     </div>
                 `;
             }
             
-            if (properties.Color || properties.color) {
+            if (properties.TMPCOMME_1) {
                 popupHTML += `
                     <div class="popup-row">
                         <span class="popup-label">Color:</span>
-                        <span class="popup-value">${properties.Color || properties.color}</span>
+                        <span class="popup-value">${properties.TMPCOMME_1}</span>
                     </div>
                 `;
             }
             
             // Add audit button if link exists
-            if (properties.Link || properties.link) {
-                const link = properties.Link || properties.link;
+            if (properties.Link) {
                 popupHTML += `
-                    <a href="${link}" target="_blank" class="popup-button">
+                    <a href="${properties.Link}" target="_blank" class="popup-button">
                         Start Audit Assessment →
                     </a>
                 `;
@@ -474,9 +482,24 @@
             // Hide loading spinner
             document.getElementById('loading').style.display = 'none';
             
-            // Add electric meters layer
+            // Check if layers already exist in the style and remove them
+            const layersToAdd = [
+                'audit-electric-meters',
+                'audit-transformers-overhead', 
+                'audit-transformers-underground',
+                'audit-feeders-overhead',
+                'audit-feeders-underground'
+            ];
+            
+            layersToAdd.forEach(layerId => {
+                if (map.getLayer(layerId)) {
+                    map.removeLayer(layerId);
+                }
+            });
+            
+            // Add electric meters layer with unique ID
             map.addLayer({
-                'id': 'electric-meters',
+                'id': 'audit-electric-meters',
                 'type': 'circle',
                 'source': {
                     'type': 'vector',
@@ -498,12 +521,9 @@
                 }
             });
             
-            // Add transformer layers with different styling for overhead and underground
-            // Both use the same source but with different filters
-            
-            // Overhead transformers - gray cylinders
+            // Add overhead transformers - filtered by SUBTYPEC_1 field
             map.addLayer({
-                'id': 'transformers-overhead',
+                'id': 'audit-transformers-overhead',
                 'type': 'circle',
                 'source': {
                     'type': 'vector',
@@ -523,21 +543,12 @@
                     'circle-stroke-width': 2,
                     'circle-opacity': 0.9
                 },
-                'filter': ['all',
-                    ['!=', ['downcase', ['get', 'Type']], 'underground'],
-                    ['!=', ['downcase', ['get', 'Type']], 'ug'],
-                    ['!=', ['downcase', ['get', 'Type']], 'pad'],
-                    ['!=', ['downcase', ['get', 'Type']], 'padmount'],
-                    ['!=', ['downcase', ['get', 'Style']], 'underground'],
-                    ['!=', ['downcase', ['get', 'Style']], 'ug'],
-                    ['!=', ['downcase', ['get', 'Style']], 'pad'],
-                    ['!=', ['downcase', ['get', 'Style']], 'padmount']
-                ]
+                'filter': ['!=', ['downcase', ['get', 'SUBTYPEC_1']], 'underground transformer']
             });
             
-            // Underground transformers - green squares
+            // Add underground transformers - filtered by SUBTYPEC_1 field
             map.addLayer({
-                'id': 'transformers-underground',
+                'id': 'audit-transformers-underground',
                 'type': 'circle',
                 'source': {
                     'type': 'vector',
@@ -557,21 +568,12 @@
                     'circle-stroke-width': 2,
                     'circle-opacity': 0.9
                 },
-                'filter': ['any',
-                    ['==', ['downcase', ['get', 'Type']], 'underground'],
-                    ['==', ['downcase', ['get', 'Type']], 'ug'],
-                    ['==', ['downcase', ['get', 'Type']], 'pad'],
-                    ['==', ['downcase', ['get', 'Type']], 'padmount'],
-                    ['==', ['downcase', ['get', 'Style']], 'underground'],
-                    ['==', ['downcase', ['get', 'Style']], 'ug'],
-                    ['==', ['downcase', ['get', 'Style']], 'pad'],
-                    ['==', ['downcase', ['get', 'Style']], 'padmount']
-                ]
+                'filter': ['==', ['downcase', ['get', 'SUBTYPEC_1']], 'underground transformer']
             });
             
             // Add overhead feeder layer (secondary OH)
             map.addLayer({
-                'id': 'feeders-overhead',
+                'id': 'audit-feeders-overhead',
                 'type': 'line',
                 'source': {
                     'type': 'vector',
@@ -593,11 +595,11 @@
                     'line-join': 'round',
                     'line-cap': 'round'
                 }
-            }, 'transformers-overhead');
+            }, 'audit-transformers-overhead');
             
             // Add underground feeder layer (secondary UG)
             map.addLayer({
-                'id': 'feeders-underground',
+                'id': 'audit-feeders-underground',
                 'type': 'line',
                 'source': {
                     'type': 'vector',
@@ -620,37 +622,37 @@
                     'line-join': 'round',
                     'line-cap': 'round'
                 }
-            }, 'transformers-overhead');
+            }, 'audit-transformers-overhead');
             
             // Hover effect for electric meters
-            map.on('mouseenter', 'electric-meters', function() {
+            map.on('mouseenter', 'audit-electric-meters', function() {
                 map.getCanvas().style.cursor = 'pointer';
             });
             
-            map.on('mouseleave', 'electric-meters', function() {
+            map.on('mouseleave', 'audit-electric-meters', function() {
                 map.getCanvas().style.cursor = '';
             });
             
             // Hover effect for overhead transformers
-            map.on('mouseenter', 'transformers-overhead', function(e) {
+            map.on('mouseenter', 'audit-transformers-overhead', function() {
                 map.getCanvas().style.cursor = 'pointer';
             });
             
-            map.on('mouseleave', 'transformers-overhead', function() {
+            map.on('mouseleave', 'audit-transformers-overhead', function() {
                 map.getCanvas().style.cursor = '';
             });
             
             // Hover effect for underground transformers
-            map.on('mouseenter', 'transformers-underground', function() {
+            map.on('mouseenter', 'audit-transformers-underground', function() {
                 map.getCanvas().style.cursor = 'pointer';
             });
             
-            map.on('mouseleave', 'transformers-underground', function() {
+            map.on('mouseleave', 'audit-transformers-underground', function() {
                 map.getCanvas().style.cursor = '';
             });
             
             // Click event for electric meters
-            map.on('click', 'electric-meters', function(e) {
+            map.on('click', 'audit-electric-meters', function(e) {
                 const coordinates = e.features[0].geometry.coordinates.slice();
                 const properties = e.features[0].properties;
                 
@@ -666,7 +668,7 @@
                 
                 // Display all available properties for the meter
                 for (const [key, value] of Object.entries(properties)) {
-                    if (value && key !== 'Link' && key !== 'link') {
+                    if (value && key !== 'Link') {
                         meterPopupHTML += `
                             <div class="popup-row">
                                 <span class="popup-label">${key}:</span>
@@ -689,13 +691,10 @@
             });
             
             // Click event for overhead transformers
-            map.on('click', 'transformers-overhead', function(e) {
+            map.on('click', 'audit-transformers-overhead', function(e) {
                 const coordinates = e.features[0].geometry.coordinates.slice();
                 const properties = e.features[0].properties;
                 
-                // Ensure that if the map is zoomed out such that multiple
-                // copies of the feature are visible, the popup appears
-                // over the copy being pointed to.
                 while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                 }
@@ -706,12 +705,12 @@
                     maxWidth: '320px'
                 })
                     .setLngLat(coordinates)
-                    .setHTML(createPopupContent(properties))
+                    .setHTML(createTransformerPopupContent(properties))
                     .addTo(map);
             });
             
             // Click event for underground transformers
-            map.on('click', 'transformers-underground', function(e) {
+            map.on('click', 'audit-transformers-underground', function(e) {
                 const coordinates = e.features[0].geometry.coordinates.slice();
                 const properties = e.features[0].properties;
                 
@@ -725,33 +724,33 @@
                     maxWidth: '320px'
                 })
                     .setLngLat(coordinates)
-                    .setHTML(createPopupContent(properties))
+                    .setHTML(createTransformerPopupContent(properties))
                     .addTo(map);
             });
             
             // Filter controls functionality
             document.getElementById('filter-overhead').addEventListener('change', function(e) {
-                map.setLayoutProperty('transformers-overhead', 'visibility', 
+                map.setLayoutProperty('audit-transformers-overhead', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
             
             document.getElementById('filter-underground').addEventListener('change', function(e) {
-                map.setLayoutProperty('transformers-underground', 'visibility', 
+                map.setLayoutProperty('audit-transformers-underground', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
             
             document.getElementById('filter-meters').addEventListener('change', function(e) {
-                map.setLayoutProperty('electric-meters', 'visibility', 
+                map.setLayoutProperty('audit-electric-meters', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
             
             document.getElementById('filter-oh-feeders').addEventListener('change', function(e) {
-                map.setLayoutProperty('feeders-overhead', 'visibility', 
+                map.setLayoutProperty('audit-feeders-overhead', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
             
             document.getElementById('filter-ug-feeders').addEventListener('change', function(e) {
-                map.setLayoutProperty('feeders-underground', 'visibility', 
+                map.setLayoutProperty('audit-feeders-underground', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
         });
@@ -759,7 +758,10 @@
         // Error handling
         map.on('error', function(e) {
             console.error('Map error:', e);
-            document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map. Please refresh the page.</p>';
+            // Only show error message if it's not about duplicate layers
+            if (e.error && !e.error.message.includes('already exists')) {
+                document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map. Please refresh the page.</p>';
+            }
         });
     </script>
 </body>
