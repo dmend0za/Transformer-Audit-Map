@@ -1,434 +1,708 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset='utf-8' />
-    <title>Transformer Audit System</title>
-    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transformer Audit Map - Wilson County</title>
+    
+    <!-- MapBox GL JS -->
     <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+    
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
-        .map-overlay {
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #map {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            max-width: 300px;
-            z-index: 1000;
-        }
-        
-        .layer-control {
-            margin: 8px 0;
-            display: flex;
-            align-items: center;
-        }
-        
-        .layer-control input {
-            margin-right: 8px;
-        }
-        
-        .layer-control label {
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        .layer-control.disabled {
-            opacity: 0.5;
-        }
-        
-        .popup-content {
-            font-size: 14px;
-            line-height: 1.4;
-            max-width: 300px;
-        }
-        
-        .audit-button {
-            background: #007cbf;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 14px;
+            top: 0;
+            bottom: 0;
             width: 100%;
         }
         
-        .audit-button:hover {
-            background: #005a8b;
+        /* Header */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.5s ease-out;
         }
         
-        .status-panel {
-            background: #f8f9fa;
-            padding: 10px;
-            margin-top: 15px;
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        .legend h3 {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .legend-item:hover {
+            transform: translateX(3px);
+        }
+        
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
             border-radius: 4px;
-            font-size: 11px;
-            max-height: 150px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
-        .status-success { color: #155724; }
-        .status-error { color: #721c24; }
-        .status-warning { color: #856404; }
+        .overhead-icon {
+            background: linear-gradient(135deg, #718096, #4a5568);
+            border-radius: 50%;
+        }
         
+        .underground-icon {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+        
+        .oh-feeder-icon {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            height: 3px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .ug-feeder-icon {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            height: 3px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            border-style: dashed;
+            border-width: 1px 0;
+            border-color: #dd6b20;
+        }
+        
+        /* Custom Popup Styles */
+        .mapboxgl-popup {
+            max-width: 320px;
+            animation: popIn 0.3s ease-out;
+        }
+        
+        .mapboxgl-popup-content {
+            padding: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .popup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .popup-content {
+            padding: 15px;
+            background: white;
+        }
+        
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .popup-row:last-of-type {
+            border-bottom: none;
+        }
+        
+        .popup-label {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 13px;
+        }
+        
+        .popup-value {
+            color: #2d3748;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .popup-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        }
+        
+        .popup-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+        }
+        
+        /* Loading Spinner */
         .loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 5px;
-            z-index: 2000;
-            text-align: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Filter Controls */
+        .filter-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .filter-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #4a5568;
+        }
+        
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .filter-checkbox:hover {
+            transform: translateX(2px);
+        }
+        
+        .filter-checkbox input {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        
+        .filter-checkbox label {
+            font-size: 13px;
+            color: #2d3748;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Hover effect for markers */
+        .transformer-marker {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .transformer-marker:hover {
+            transform: scale(1.2);
         }
     </style>
 </head>
 <body>
-    <div id='map'></div>
+    <div id="map"></div>
     
-    <div class='map-overlay'>
-        <h3 style='margin: 0 0 15px 0; color: #333;'>⚡ Transformer Audit</h3>
-        
-        <div class='layer-control' id='transformer-control'>
-            <input type='checkbox' id='transformer-toggle' checked>
-            <label for='transformer-toggle'>🟠 Transformer Banks</label>
+    <!-- Header -->
+    <div class="header">
+        <h1>Transformer Audit Map</h1>
+        <p>Wilson County, North Carolina</p>
+    </div>
+    
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+        <div class="filter-title">Layer Visibility</div>
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filter-overhead" checked>
+            <label for="filter-overhead">Overhead Transformers</label>
         </div>
-        <div class='layer-control' id='meters-control'>
-            <input type='checkbox' id='meters-toggle' checked>
-            <label for='meters-toggle'>🔵 Electric Meters</label>
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filter-underground" checked>
+            <label for="filter-underground">Underground Transformers</label>
         </div>
-        <div class='layer-control' id='secondary-oh-control'>
-            <input type='checkbox' id='secondary-oh-toggle' checked>
-            <label for='secondary-oh-toggle'>🟢 Secondary Overhead</label>
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filter-oh-feeders" checked>
+            <label for="filter-oh-feeders">Overhead Feeders</label>
         </div>
-        <div class='layer-control' id='secondary-ug-control'>
-            <input type='checkbox' id='secondary-ug-toggle' checked>
-            <label for='secondary-ug-toggle'>🔴 Secondary Underground</label>
-        </div>
-        
-        <div class='status-panel' id='status-log'>
-            <strong>Loading Status:</strong><br>
-            Initializing map...
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filter-ug-feeders" checked>
+            <label for="filter-ug-feeders">Underground Feeders</label>
         </div>
     </div>
     
-    <div class='loading' id='loading'>
-        <div>🗺️ Loading Utility Infrastructure</div>
-        <div style='font-size: 12px; margin-top: 10px; opacity: 0.8;'>Connecting to available data...</div>
+    <!-- Legend -->
+    <div class="legend">
+        <h3>Map Legend</h3>
+        <div class="legend-item">
+            <div class="legend-icon overhead-icon"></div>
+            <span>Overhead Transformer</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-icon underground-icon"></div>
+            <span>Underground Transformer</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-icon oh-feeder-icon"></div>
+            <span>Overhead Feeder</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-icon ug-feeder-icon"></div>
+            <span>Underground Feeder</span>
+        </div>
     </div>
-
+    
+    <!-- Loading Spinner -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+    
     <script>
-        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWUwZjA1ZXgwNGRhMmlvbHRscXk2NjVsIn0.VGVrTxKM9nEDk25TnFdcdg';
+        // MapBox Access Token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
         
-        const statusLog = document.getElementById('status-log');
-        const availableLayers = {};
-        
-        function updateStatus(message, type = 'info') {
-            const timestamp = new Date().toLocaleTimeString();
-            let className = '';
-            if (type === 'success') className = 'status-success';
-            else if (type === 'error') className = 'status-error';
-            else if (type === 'warning') className = 'status-warning';
-            
-            statusLog.innerHTML += `<br><span class="${className}">${timestamp}: ${message}</span>`;
-            statusLog.scrollTop = statusLog.scrollHeight;
-            console.log(message);
-        }
-
-        // Initialize map with satellite view
+        // Initialize the map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/satellite-streets-v12',
-            center: [-77.88424798136592, 35.734696861467626],
-            zoom: 16
+            style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1',
+            center: [-77.9156, 35.7213], // Wilson County, NC center
+            zoom: 11.5,
+            pitch: 0,
+            bearing: 0
         });
-
+        
         // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-
-        map.on('load', function() {
-            document.getElementById('loading').style.display = 'none';
-            updateStatus('✅ Base map loaded', 'success');
+        map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+        
+        // Add scale control
+        map.addControl(new mapboxgl.ScaleControl({
+            maxWidth: 100,
+            unit: 'imperial'
+        }), 'bottom-left');
+        
+        // Add fullscreen control
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
+        
+        // Function to create popup content
+        function createPopupContent(properties) {
+            const type = properties.Type || properties.type || 'Unknown';
+            const style = properties.Style || properties.style || 'Unknown';
+            const isUnderground = type.toLowerCase().includes('underground') || 
+                                 style.toLowerCase().includes('pad') ||
+                                 style.toLowerCase().includes('ug');
             
-            // Test and load each tileset individually
-            loadTilesetSafely();
-        });
-
-        function loadTilesetSafely() {
-            updateStatus('📡 Testing tileset availability...', 'info');
+            const headerText = isUnderground ? 'Underground Transformer' : 'Overhead Transformer';
             
-            const tilesetConfigs = [
-                { 
-                    id: 'transformers-src',
-                    tilesetId: 'fieldsense.9i382k93',
-                    name: 'Transformers',
-                    layerId: 'transformers-layer',
-                    controlId: 'transformer-control',
-                    sourceLayerCandidates: ['transformer_banks2', 'transformer-banks2', 'transformerbanks2', 'default'],
-                    style: {
-                        type: 'circle',
-                        paint: {
-                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 5, 16, 8, 20, 12],
-                            'circle-color': '#ff6b35',
-                            'circle-stroke-color': '#ffffff',
-                            'circle-stroke-width': 2,
-                            'circle-opacity': 0.9
-                        }
-                    }
-                },
-                { 
-                    id: 'meters-src',
-                    tilesetId: 'fieldsense.00srtpq5',
-                    name: 'Meters',
-                    layerId: 'meters-layer',
-                    controlId: 'meters-control',
-                    sourceLayerCandidates: ['electric_meters2', 'electric-meters2', 'electricmeters2', 'default'],
-                    style: {
-                        type: 'circle',
-                        paint: {
-                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 6],
-                            'circle-color': '#4a90e2',
-                            'circle-opacity': 0.8
-                        },
-                        minzoom: 14
-                    }
-                },
-                { 
-                    id: 'secondary-oh-src',
-                    tilesetId: 'fieldsense.0wvcayxk',
-                    name: 'Secondary OH',
-                    layerId: 'secondary-oh-layer',
-                    controlId: 'secondary-oh-control',
-                    sourceLayerCandidates: ['secondary_OH2', 'secondary-OH2', 'secondaryOH2', 'secondary_oh2', 'default'],
-                    style: {
-                        type: 'line',
-                        paint: {
-                            'line-color': '#2ecc71',
-                            'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 18, 4],
-                            'line-opacity': 0.8
-                        },
-                        minzoom: 12
-                    }
-                },
-                { 
-                    id: 'secondary-ug-src',
-                    tilesetId: 'fieldsense.cgp8b9gy',
-                    name: 'Secondary UG',
-                    layerId: 'secondary-ug-layer',
-                    controlId: 'secondary-ug-control',
-                    sourceLayerCandidates: ['secondary_UG2', 'secondary-UG2', 'secondaryUG2', 'secondary_ug2', 'default'],
-                    style: {
-                        type: 'line',
-                        paint: {
-                            'line-color': '#e74c3c',
-                            'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 18, 4],
-                            'line-opacity': 0.8,
-                            'line-dasharray': [3, 2]
-                        },
-                        minzoom: 12
-                    }
-                }
-            ];
-
-            // Test each tileset by trying to fetch its metadata
-            tilesetConfigs.forEach((config, index) => {
-                setTimeout(() => {
-                    testAndLoadTileset(config);
-                }, index * 500); // Stagger the requests
-            });
-        }
-
-        function testAndLoadTileset(config) {
-            updateStatus(`🔍 Testing ${config.name}...`, 'info');
+            let popupHTML = `
+                <div class="popup-header">${headerText}</div>
+                <div class="popup-content">
+            `;
             
-            // Test tileset availability by fetching its JSON metadata
-            fetch(`https://api.mapbox.com/v4/${config.tilesetId}.json?access_token=${mapboxgl.accessToken}`)
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                    throw new Error(`HTTP ${response.status}`);
-                })
-                .then(metadata => {
-                    updateStatus(`✅ ${config.name} tileset found`, 'success');
-                    loadTilesetData(config);
-                })
-                .catch(error => {
-                    updateStatus(`❌ ${config.name} not accessible (${error.message})`, 'error');
-                    disableLayerControl(config.controlId);
-                });
-        }
-
-        function loadTilesetData(config) {
-            try {
-                // Add the source
-                map.addSource(config.id, {
-                    type: 'vector',
-                    url: `mapbox://${config.tilesetId}`
-                });
-                updateStatus(`📥 Added ${config.name} source`, 'success');
-                
-                // Try different source-layer names
-                let layerCreated = false;
-                config.sourceLayerCandidates.forEach((sourceLayer, index) => {
-                    if (layerCreated) return;
-                    
-                    setTimeout(() => {
-                        if (layerCreated) return;
-                        
-                        try {
-                            const layerDef = {
-                                id: config.layerId,
-                                type: config.style.type,
-                                source: config.id,
-                                'source-layer': sourceLayer,
-                                paint: config.style.paint
-                            };
-                            
-                            if (config.style.minzoom) layerDef.minzoom = config.style.minzoom;
-                            
-                            map.addLayer(layerDef);
-                            
-                            // Test if layer has features
-                            setTimeout(() => {
-                                try {
-                                    const features = map.querySourceFeatures(config.id, {
-                                        sourceLayer: sourceLayer
-                                    });
-                                    
-                                    if (features && features.length > 0) {
-                                        updateStatus(`✅ ${config.name}: ${features.length} features loaded`, 'success');
-                                        availableLayers[config.layerId] = config;
-                                        layerCreated = true;
-                                        
-                                        // Setup interactions for transformers
-                                        if (config.id === 'transformers-src') {
-                                            setupTransformerInteractions(config.layerId);
-                                        }
-                                        
-                                        setupLayerToggle(config);
-                                    } else {
-                                        updateStatus(`⚠️ ${config.name}: No features found with "${sourceLayer}"`, 'warning');
-                                        if (map.getLayer(config.layerId)) {
-                                            map.removeLayer(config.layerId);
-                                        }
-                                    }
-                                } catch (queryError) {
-                                    if (map.getLayer(config.layerId)) {
-                                        map.removeLayer(config.layerId);
-                                    }
-                                }
-                            }, 1000);
-                            
-                        } catch (layerError) {
-                            // This source-layer name didn't work, try the next one
-                        }
-                    }, index * 300);
-                });
-                
-            } catch (sourceError) {
-                updateStatus(`❌ Failed to add ${config.name} source: ${sourceError.message}`, 'error');
-                disableLayerControl(config.controlId);
+            // Add transformer details
+            if (properties.Transformer_ID || properties.transformer_id) {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">Transformer ID:</span>
+                        <span class="popup-value">${properties.Transformer_ID || properties.transformer_id}</span>
+                    </div>
+                `;
             }
+            
+            if (properties.Feeder || properties.feeder) {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">Feeder:</span>
+                        <span class="popup-value">${properties.Feeder || properties.feeder}</span>
+                    </div>
+                `;
+            }
+            
+            if (properties.KVA || properties.kva) {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">KVA (Size):</span>
+                        <span class="popup-value">${properties.KVA || properties.kva}</span>
+                    </div>
+                `;
+            }
+            
+            if (type !== 'Unknown') {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">Type:</span>
+                        <span class="popup-value">${type}</span>
+                    </div>
+                `;
+            }
+            
+            if (style !== 'Unknown') {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">Style:</span>
+                        <span class="popup-value">${style}</span>
+                    </div>
+                `;
+            }
+            
+            if (properties.Color || properties.color) {
+                popupHTML += `
+                    <div class="popup-row">
+                        <span class="popup-label">Color:</span>
+                        <span class="popup-value">${properties.Color || properties.color}</span>
+                    </div>
+                `;
+            }
+            
+            // Add audit button if link exists
+            if (properties.Link || properties.link) {
+                const link = properties.Link || properties.link;
+                popupHTML += `
+                    <a href="${link}" target="_blank" class="popup-button">
+                        Start Audit Assessment →
+                    </a>
+                `;
+            }
+            
+            popupHTML += '</div>';
+            
+            return popupHTML;
         }
-
-        function setupTransformerInteractions(layerId) {
-            map.on('click', layerId, function(e) {
-                const properties = e.features[0].properties;
-                
-                let popupContent = '<div class="popup-content">';
-                popupContent += '<h4>🔧 Transformer Bank</h4>';
-                
-                // Display key properties
-                let propsShown = 0;
-                Object.keys(properties).forEach(key => {
-                    if (propsShown < 5 && properties[key] !== null && properties[key] !== '' && properties[key] !== undefined) {
-                        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-                        propsShown++;
-                    }
-                });
-                
-                // Look for audit URL
-                const auditUrl = properties.audit_url || properties.form_url || properties.url || 
-                               properties.AUDIT_URL || properties.FORM_URL || properties.URL;
-                
-                if (auditUrl) {
-                    popupContent += `<button class="audit-button" onclick="window.open('${auditUrl}', '_blank')">Start Audit</button>`;
-                } else {
-                    const assetId = properties.id || properties.objectid || properties.ID || properties.OBJECTID || 'unknown';
-                    popupContent += `<button class="audit-button" onclick="startAudit('${assetId}')">Start Audit</button>`;
-                }
-                popupContent += '</div>';
-
-                new mapboxgl.Popup({ closeOnClick: true })
-                    .setLngLat(e.lngLat)
-                    .setHTML(popupContent)
-                    .addTo(map);
+        
+        // Map load event
+        map.on('load', function() {
+            // Hide loading spinner
+            document.getElementById('loading').style.display = 'none';
+            
+            // Add transformer layers with different styling for overhead and underground
+            
+            // Overhead transformers - gray cylinders
+            map.addLayer({
+                'id': 'transformers-overhead',
+                'type': 'circle',
+                'source': {
+                    'type': 'vector',
+                    'url': 'mapbox://fieldsense.0lkxvrs2'
+                },
+                'source-layer': 'transformers',
+                'paint': {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 4,
+                        15, 12
+                    ],
+                    'circle-color': '#718096',
+                    'circle-stroke-color': '#4a5568',
+                    'circle-stroke-width': 2,
+                    'circle-opacity': 0.9,
+                    'circle-pitch-alignment': 'map'
+                },
+                'filter': ['any',
+                    ['!', ['has', 'Type']],
+                    ['!', ['in', ['downcase', ['get', 'Type']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]],
+                    ['!', ['in', ['downcase', ['get', 'Style']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]]
+                ]
             });
-
-            map.on('mouseenter', layerId, () => {
+            
+            // Underground transformers - green boxes
+            map.addLayer({
+                'id': 'transformers-underground',
+                'type': 'symbol',
+                'source': {
+                    'type': 'vector',
+                    'url': 'mapbox://fieldsense.0lkxvrs2'
+                },
+                'source-layer': 'transformers',
+                'layout': {
+                    'icon-image': 'marker-15',
+                    'icon-size': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 0.8,
+                        15, 1.5
+                    ],
+                    'icon-allow-overlap': true
+                },
+                'paint': {
+                    'icon-color': '#48bb78',
+                    'icon-halo-color': '#38a169',
+                    'icon-halo-width': 2
+                },
+                'filter': ['any',
+                    ['in', ['downcase', ['get', 'Type']], ['literal', ['underground', 'ug', 'pad', 'padmount']]],
+                    ['in', ['downcase', ['get', 'Style']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]
+                ]
+            });
+            
+            // Add overhead feeder layer
+            map.addLayer({
+                'id': 'feeders-overhead',
+                'type': 'line',
+                'source': {
+                    'type': 'vector',
+                    'url': 'mapbox://fieldsense.9i382k93'
+                },
+                'source-layer': 'overhead-feeders',
+                'paint': {
+                    'line-color': '#4299e1',
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 1,
+                        15, 3
+                    ],
+                    'line-opacity': 0.7
+                },
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                }
+            }, 'transformers-overhead');
+            
+            // Add underground feeder layer
+            map.addLayer({
+                'id': 'feeders-underground',
+                'type': 'line',
+                'source': {
+                    'type': 'vector',
+                    'url': 'mapbox://fieldsense.00srtpq5'
+                },
+                'source-layer': 'underground-feeders',
+                'paint': {
+                    'line-color': '#ed8936',
+                    'line-width': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 1,
+                        15, 3
+                    ],
+                    'line-opacity': 0.7,
+                    'line-dasharray': [2, 2]
+                },
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                }
+            }, 'transformers-overhead');
+            
+            // Hover effect for overhead transformers
+            let hoveredTransformerId = null;
+            
+            map.on('mouseenter', 'transformers-overhead', function(e) {
+                map.getCanvas().style.cursor = 'pointer';
+                
+                if (hoveredTransformerId !== null) {
+                    map.setPaintProperty('transformers-overhead', 'circle-radius', [
+                        'case',
+                        ['==', ['id'], hoveredTransformerId],
+                        ['interpolate', ['linear'], ['zoom'], 10, 6, 15, 18],
+                        ['interpolate', ['linear'], ['zoom'], 10, 4, 15, 12]
+                    ]);
+                }
+                
+                hoveredTransformerId = e.features[0].id;
+                
+                map.setPaintProperty('transformers-overhead', 'circle-radius', [
+                    'case',
+                    ['==', ['id'], hoveredTransformerId],
+                    ['interpolate', ['linear'], ['zoom'], 10, 6, 15, 18],
+                    ['interpolate', ['linear'], ['zoom'], 10, 4, 15, 12]
+                ]);
+            });
+            
+            map.on('mouseleave', 'transformers-overhead', function() {
+                map.getCanvas().style.cursor = '';
+                
+                if (hoveredTransformerId !== null) {
+                    map.setPaintProperty('transformers-overhead', 'circle-radius', [
+                        'interpolate', ['linear'], ['zoom'], 10, 4, 15, 12
+                    ]);
+                    hoveredTransformerId = null;
+                }
+            });
+            
+            // Hover effect for underground transformers
+            map.on('mouseenter', 'transformers-underground', function() {
                 map.getCanvas().style.cursor = 'pointer';
             });
-
-            map.on('mouseleave', layerId, () => {
+            
+            map.on('mouseleave', 'transformers-underground', function() {
                 map.getCanvas().style.cursor = '';
             });
-
-            updateStatus('✅ Transformer click events ready', 'success');
-        }
-
-        function setupLayerToggle(config) {
-            const toggle = document.getElementById(config.controlId.replace('-control', '-toggle'));
-            if (toggle) {
-                toggle.addEventListener('change', function(e) {
-                    if (map.getLayer(config.layerId)) {
-                        map.setLayoutProperty(config.layerId, 'visibility', 
-                            e.target.checked ? 'visible' : 'none');
-                    }
-                });
-            }
-        }
-
-        function disableLayerControl(controlId) {
-            const control = document.getElementById(controlId);
-            if (control) {
-                control.classList.add('disabled');
-                const checkbox = control.querySelector('input');
-                if (checkbox) {
-                    checkbox.disabled = true;
-                    checkbox.checked = false;
+            
+            // Click event for overhead transformers
+            map.on('click', 'transformers-overhead', function(e) {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const properties = e.features[0].properties;
+                
+                // Ensure that if the map is zoomed out such that multiple
+                // copies of the feature are visible, the popup appears
+                // over the copy being pointed to.
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                 }
-            }
-        }
-
-        function startAudit(assetId) {
-            alert(`🔧 Starting audit for transformer: ${assetId}\n\nThis will redirect to your audit form once URLs are embedded in the transformer data.`);
-        }
-
+                
+                new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: true,
+                    maxWidth: '320px'
+                })
+                    .setLngLat(coordinates)
+                    .setHTML(createPopupContent(properties))
+                    .addTo(map);
+            });
+            
+            // Click event for underground transformers
+            map.on('click', 'transformers-underground', function(e) {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const properties = e.features[0].properties;
+                
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+                
+                new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: true,
+                    maxWidth: '320px'
+                })
+                    .setLngLat(coordinates)
+                    .setHTML(createPopupContent(properties))
+                    .addTo(map);
+            });
+            
+            // Filter controls functionality
+            document.getElementById('filter-overhead').addEventListener('change', function(e) {
+                map.setLayoutProperty('transformers-overhead', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+            
+            document.getElementById('filter-underground').addEventListener('change', function(e) {
+                map.setLayoutProperty('transformers-underground', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+            
+            document.getElementById('filter-oh-feeders').addEventListener('change', function(e) {
+                map.setLayoutProperty('feeders-overhead', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+            
+            document.getElementById('filter-ug-feeders').addEventListener('change', function(e) {
+                map.setLayoutProperty('feeders-underground', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+        });
+        
         // Error handling
         map.on('error', function(e) {
-            updateStatus(`❌ Map error: ${e.error.message}`, 'error');
+            console.error('Map error:', e);
+            document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map. Please refresh the page.</p>';
         });
-
-        // Final status update
-        setTimeout(() => {
-            const loadedCount = Object.keys(availableLayers).length;
-            if (loadedCount > 0) {
-                updateStatus(`🎯 Map ready! ${loadedCount} layer(s) loaded successfully`, 'success');
-            } else {
-                updateStatus('⚠️ No data layers could be loaded. Check tileset availability.', 'warning');
-            }
-        }, 5000);
     </script>
 </body>
 </html>
