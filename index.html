@@ -474,11 +474,32 @@
             // Hide loading spinner
             document.getElementById('loading').style.display = 'none';
             
-            // First, let's check what source layers are available
-            // You'll need to verify the exact source-layer name from your tileset
-            // Common names are the tileset name without the username prefix
+            // Add electric meters layer
+            map.addLayer({
+                'id': 'electric-meters',
+                'type': 'circle',
+                'source': {
+                    'type': 'vector',
+                    'url': 'mapbox://fieldsense.0lkxvrs2'
+                },
+                'source-layer': 'electric_meters-ailda3',
+                'paint': {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        10, 2,
+                        15, 6
+                    ],
+                    'circle-color': '#805AD5',
+                    'circle-stroke-color': '#6B46C1',
+                    'circle-stroke-width': 1,
+                    'circle-opacity': 0.8
+                }
+            });
             
             // Add transformer layers with different styling for overhead and underground
+            // Both use the same source but with different filters
             
             // Overhead transformers - gray cylinders
             map.addLayer({
@@ -488,7 +509,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.0lkxvrs2'
                 },
-                'source-layer': '0lkxvrs2', // Using the tileset ID as source-layer
+                'source-layer': 'transformers-9cy3fu',
                 'paint': {
                     'circle-radius': [
                         'interpolate',
@@ -522,7 +543,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.0lkxvrs2'
                 },
-                'source-layer': 'fieldsense.0lkxvrs2', // Using the tileset ID as source-layer
+                'source-layer': 'transformers-9cy3fu',
                 'paint': {
                     'circle-radius': [
                         'interpolate',
@@ -548,7 +569,7 @@
                 ]
             });
             
-            // Add overhead feeder layer
+            // Add overhead feeder layer (secondary OH)
             map.addLayer({
                 'id': 'feeders-overhead',
                 'type': 'line',
@@ -556,7 +577,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.9i382k93'
                 },
-                'source-layer': '9i382k93', // Using the tileset ID as source-layer
+                'source-layer': 'secondary_OH-bui3wt',
                 'paint': {
                     'line-color': '#4299e1',
                     'line-width': [
@@ -574,7 +595,7 @@
                 }
             }, 'transformers-overhead');
             
-            // Add underground feeder layer
+            // Add underground feeder layer (secondary UG)
             map.addLayer({
                 'id': 'feeders-underground',
                 'type': 'line',
@@ -582,7 +603,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.00srtpq5'
                 },
-                'source-layer': '00srtpq5', // Using the tileset ID as source-layer
+                'source-layer': 'secondary_UG-63wuoq',
                 'paint': {
                     'line-color': '#ed8936',
                     'line-width': [
@@ -601,6 +622,15 @@
                 }
             }, 'transformers-overhead');
             
+            // Hover effect for electric meters
+            map.on('mouseenter', 'electric-meters', function() {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            
+            map.on('mouseleave', 'electric-meters', function() {
+                map.getCanvas().style.cursor = '';
+            });
+            
             // Hover effect for overhead transformers
             map.on('mouseenter', 'transformers-overhead', function(e) {
                 map.getCanvas().style.cursor = 'pointer';
@@ -617,6 +647,45 @@
             
             map.on('mouseleave', 'transformers-underground', function() {
                 map.getCanvas().style.cursor = '';
+            });
+            
+            // Click event for electric meters
+            map.on('click', 'electric-meters', function(e) {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const properties = e.features[0].properties;
+                
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+                
+                // Create simple popup for meters showing available properties
+                let meterPopupHTML = `
+                    <div class="popup-header">Electric Meter</div>
+                    <div class="popup-content">
+                `;
+                
+                // Display all available properties for the meter
+                for (const [key, value] of Object.entries(properties)) {
+                    if (value && key !== 'Link' && key !== 'link') {
+                        meterPopupHTML += `
+                            <div class="popup-row">
+                                <span class="popup-label">${key}:</span>
+                                <span class="popup-value">${value}</span>
+                            </div>
+                        `;
+                    }
+                }
+                
+                meterPopupHTML += '</div>';
+                
+                new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: true,
+                    maxWidth: '320px'
+                })
+                    .setLngLat(coordinates)
+                    .setHTML(meterPopupHTML)
+                    .addTo(map);
             });
             
             // Click event for overhead transformers
@@ -668,6 +737,11 @@
             
             document.getElementById('filter-underground').addEventListener('change', function(e) {
                 map.setLayoutProperty('transformers-underground', 'visibility', 
+                    e.target.checked ? 'visible' : 'none');
+            });
+            
+            document.getElementById('filter-meters').addEventListener('change', function(e) {
+                map.setLayoutProperty('electric-meters', 'visibility', 
                     e.target.checked ? 'visible' : 'none');
             });
             
