@@ -30,7 +30,6 @@
             left: 0;
             right: 0;
             bottom: 0;
-            display: flex;
             justify-content: center;
             align-items: center;
             text-align: center;
@@ -85,203 +84,171 @@
 
 
 <script>
-    // Hide the unsupported message by default
-    document.getElementById('unsupported').style.display = 'none';
+    document.addEventListener('DOMContentLoaded', function() {
+        // Hide the unsupported message by default
+        document.getElementById('unsupported').style.display = 'none';
 
-    // Check if Mapbox GL is supported in the current browser/environment.
-    if (mapboxgl.supported()) {
-        // --- MAPBOX INITIALIZATION ---
-        mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
+        // Check if Mapbox GL is supported in the current browser/environment.
+        if (mapboxgl.supported()) {
+            // --- MAPBOX INITIALIZATION ---
+            mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-        // Initialize the map with a standard Mapbox style.
-        // This prevents conflicts with custom styles that might already contain the sources/layers.
-        const map = new mapboxgl.Map({
-            container: 'map', // The ID of the div element to hold the map
-            style: 'mapbox://styles/mapbox/light-v11', // Using a neutral base style
-            center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
-            zoom: 11.5, // Initial zoom level
-            failIfMajorPerformanceCaveat: false
-        });
-
-        // --- MAP LOAD EVENT ---
-        // This function runs once the map's style has finished loading.
-        map.on('load', () => {
-            // --- ADD TILESET SOURCES ---
-            // The code now has full control over adding sources and layers.
-            map.addSource('transformers', {
-                type: 'vector',
-                url: 'mapbox://fieldsense.transformers-9cy3fu'
+            // Initialize the map with a standard Mapbox style.
+            const map = new mapboxgl.Map({
+                container: 'map', // The ID of the div element to hold the map
+                style: 'mapbox://styles/mapbox/light-v11', // Using a neutral base style
+                center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
+                zoom: 11.5, // Initial zoom level
+                failIfMajorPerformanceCaveat: false
             });
 
-            map.addSource('meters', {
-                type: 'vector',
-                url: 'mapbox://fieldsense.electric_meters-ailda3'
-            });
-
-            map.addSource('secondary-oh', {
-                type: 'vector',
-                url: 'mapbox://fieldsense.secondary_OH-bui3wt'
-            });
-
-            map.addSource('secondary-ug', {
-                type: 'vector',
-                url: 'mapbox://fieldsense.secondary_UG-63wuoq'
-            });
-
-
-            // --- ADD LAYERS ---
-            // Style and add layers for the vector sources added above.
-
-            // 1. Underground Feeders Layer
-            map.addLayer({
-                'id': 'ug-feeders',
-                'type': 'line',
-                'source': 'secondary-ug',
-                'source-layer': 'secondary_UG-63wuoq',
-                'layout': {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                'paint': {
-                    'line-color': '#ff8c00',
-                    'line-width': 2,
-                    'line-dasharray': [2, 2]
-                }
-            });
-
-            // 2. Overhead Feeders Layer
-            map.addLayer({
-                'id': 'oh-feeders',
-                'type': 'line',
-                'source': 'secondary-oh',
-                'source-layer': 'secondary_OH-bui3wt',
-                'layout': {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                'paint': {
-                    'line-color': '#555555',
-                    'line-width': 2
-                }
-            });
-
-            // 3. Underground Transformers Layer (Green Circles)
-            map.addLayer({
-                'id': 'transformers-underground',
-                'type': 'circle',
-                'source': 'transformers',
-                'source-layer': 'transformers-9cy3fu',
-                'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
-                'paint': {
-                    'circle-color': '#2E8B57',
-                    'circle-radius': 7,
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#ffffff'
-                }
-            });
-
-            // 4. Overhead Transformers Layer (Gray Circles)
-            map.addLayer({
-                'id': 'transformers-overhead',
-                'type': 'circle',
-                'source': 'transformers',
-                'source-layer': 'transformers-9cy3fu',
-                'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-                'paint': {
-                    'circle-color': '#808080',
-                    'circle-radius': 6,
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#ffffff'
-                }
-            });
-            
-            // 5. Electric Meters Layer
-            map.addLayer({
-                'id': 'electric-meters',
-                'type': 'circle',
-                'source': 'meters',
-                'source-layer': 'electric_meters-ailda3',
-                'paint': {
-                    'circle-color': '#1E90FF',
-                    'circle-radius': 5,
-                    'circle-stroke-width': 1,
-                    'circle-stroke-color': '#ffffff'
-                }
-            });
-
-
-            // --- INTERACTIVITY ---
-            const popup = new mapboxgl.Popup({
-                closeButton: false,
-                closeOnClick: false
-            });
-
-            // Function to create and show popup for transformers
-            const createTransformerPopup = (e) => {
-                const properties = e.features[0].properties;
-                const coordinates = e.features[0].geometry.coordinates.slice();
-
-                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-                }
-                
-                const popupHTML = `
-                    <h4>Transformer Details</h4>
-                    <p><strong>ID:</strong> ${properties.FID || 'N/A'}</p>
-                    <p><strong>Feeder:</strong> ${properties.FEEDERIDI || 'N/A'}</p>
-                    <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
-                    <p><strong>Type:</strong> ${properties.SUBTYPEC_1 || 'N/A'}</p>
-                    <p><strong>Comments:</strong> ${properties.COMMENTS_C || 'N/A'}</p>
-                    <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
-                `;
-
-                popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-            };
-            
-            // Function to create and show popup for meters
-            const createMeterPopup = (e) => {
-                const properties = e.features[0].properties;
-                const coordinates = e.features[0].geometry.coordinates.slice();
-
-                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-                }
-                
-                const popupHTML = `
-                    <h4>Electric Meter</h4>
-                    <p><strong>Meter Number:</strong> ${properties.METER_N || 'N/A'}</p>
-                    <p><strong>Status:</strong> ${properties.STATUS || 'N/A'}</p>
-                `;
-
-                popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-            };
-
-            // Add click listeners for each interactive layer
-            map.on('click', 'transformers-underground', createTransformerPopup);
-            map.on('click', 'transformers-overhead', createTransformerPopup);
-            map.on('click', 'electric-meters', createMeterPopup);
-
-            // --- HOVER EFFECTS ---
-            const interactiveLayers = ['transformers-underground', 'transformers-overhead', 'electric-meters'];
-            interactiveLayers.forEach(layerId => {
-                map.on('mouseenter', layerId, () => {
-                    map.getCanvas().style.cursor = 'pointer';
+            // --- MAP LOAD EVENT ---
+            // This function runs once the map's style has finished loading.
+            map.on('load', () => {
+                // --- ADD TILESET SOURCES ---
+                map.addSource('transformers', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.transformers-9cy3fu'
                 });
-                map.on('mouseleave', layerId, () => {
-                    map.getCanvas().style.cursor = '';
-                    popup.remove();
+
+                map.addSource('meters', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.electric_meters-ailda3'
+                });
+
+                map.addSource('secondary-oh', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.secondary_OH-bui3wt'
+                });
+
+                map.addSource('secondary-ug', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.secondary_UG-63wuoq'
+                });
+
+
+                // --- ADD LAYERS ---
+                // NOTE: The 'source-layer' must be the name of the layer within the tileset.
+                // You can find this name by going to your Mapbox Studio, selecting the tileset,
+                // and looking at the layer name listed there. It's often the original filename.
+
+                // 1. Underground Feeders Layer
+                map.addLayer({
+                    'id': 'ug-feeders',
+                    'type': 'line',
+                    'source': 'secondary-ug',
+                    'source-layer': 'secondary_UG-63wuoq', // **CHECK THIS NAME IN MAPBOX**
+                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                    'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
+                });
+
+                // 2. Overhead Feeders Layer
+                map.addLayer({
+                    'id': 'oh-feeders',
+                    'type': 'line',
+                    'source': 'secondary-oh',
+                    'source-layer': 'secondary_OH-bui3wt', // **CHECK THIS NAME IN MAPBOX**
+                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                    'paint': { 'line-color': '#555555', 'line-width': 2 }
+                });
+
+                // 3. Underground Transformers Layer (Green Circles)
+                map.addLayer({
+                    'id': 'transformers-underground',
+                    'type': 'circle',
+                    'source': 'transformers',
+                    'source-layer': 'transformers-9cy3fu', // **CHECK THIS NAME IN MAPBOX**
+                    'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
+                    'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                });
+
+                // 4. Overhead Transformers Layer (Gray Circles)
+                map.addLayer({
+                    'id': 'transformers-overhead',
+                    'type': 'circle',
+                    'source': 'transformers',
+                    'source-layer': 'transformers-9cy3fu', // **CHECK THIS NAME IN MAPBOX**
+                    'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
+                    'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                });
+                
+                // 5. Electric Meters Layer
+                map.addLayer({
+                    'id': 'electric-meters',
+                    'type': 'circle',
+                    'source': 'meters',
+                    'source-layer': 'electric_meters-ailda3', // **CHECK THIS NAME IN MAPBOX**
+                    'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
+                });
+
+
+                // --- INTERACTIVITY ---
+                const popup = new mapboxgl.Popup({
+                    closeButton: false,
+                    closeOnClick: false
+                });
+
+                const createTransformerPopup = (e) => {
+                    const properties = e.features[0].properties;
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+                    const popupHTML = `
+                        <h4>Transformer Details</h4>
+                        <p><strong>ID:</strong> ${properties.FID || 'N/A'}</p>
+                        <p><strong>Feeder:</strong> ${properties.FEEDERIDI || 'N/A'}</p>
+                        <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
+                        <p><strong>Type:</strong> ${properties.SUBTYPEC_1 || 'N/A'}</p>
+                        <p><strong>Comments:</strong> ${properties.COMMENTS_C || 'N/A'}</p>
+                        <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
+                    `;
+                    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+                };
+                
+                const createMeterPopup = (e) => {
+                    const properties = e.features[0].properties;
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+                    const popupHTML = `
+                        <h4>Electric Meter</h4>
+                        <p><strong>Meter Number:</strong> ${properties.METER_N || 'N/A'}</p>
+                        <p><strong>Status:</strong> ${properties.STATUS || 'N/A'}</p>
+                    `;
+                    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+                };
+
+                // Add click listeners for each interactive layer
+                const interactiveLayers = ['transformers-underground', 'transformers-overhead', 'electric-meters'];
+                interactiveLayers.forEach(layerId => {
+                    map.on('click', layerId, (e) => {
+                        if (layerId.includes('transformer')) {
+                            createTransformerPopup(e);
+                        } else {
+                            createMeterPopup(e);
+                        }
+                    });
+
+                    map.on('mouseenter', layerId, () => {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+                    map.on('mouseleave', layerId, () => {
+                        map.getCanvas().style.cursor = '';
+                        popup.remove();
+                    });
                 });
             });
-        });
 
-        // Add zoom and rotation controls to the map.
-        map.addControl(new mapboxgl.NavigationControl());
-    } else {
-        // If WebGL is not supported, hide the map and show the error message.
-        document.getElementById('map').style.display = 'none';
-        document.getElementById('unsupported').style.display = 'flex';
-    }
-
+            // Add zoom and rotation controls to the map.
+            map.addControl(new mapboxgl.NavigationControl());
+        } else {
+            // If WebGL is not supported, hide the map and show the error message.
+            document.getElementById('map').style.display = 'none';
+            document.getElementById('unsupported').style.display = 'flex';
+        }
+    });
 </script>
 
 </body>
