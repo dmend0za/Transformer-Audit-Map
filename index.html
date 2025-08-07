@@ -474,6 +474,10 @@
             // Hide loading spinner
             document.getElementById('loading').style.display = 'none';
             
+            // First, let's check what source layers are available
+            // You'll need to verify the exact source-layer name from your tileset
+            // Common names are the tileset name without the username prefix
+            
             // Add transformer layers with different styling for overhead and underground
             
             // Overhead transformers - gray cylinders
@@ -484,7 +488,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.0lkxvrs2'
                 },
-                'source-layer': 'transformers',
+                'source-layer': '0lkxvrs2', // Using the tileset ID as source-layer
                 'paint': {
                     'circle-radius': [
                         'interpolate',
@@ -496,44 +500,51 @@
                     'circle-color': '#718096',
                     'circle-stroke-color': '#4a5568',
                     'circle-stroke-width': 2,
-                    'circle-opacity': 0.9,
-                    'circle-pitch-alignment': 'map'
+                    'circle-opacity': 0.9
                 },
-                'filter': ['any',
-                    ['!', ['has', 'Type']],
-                    ['!', ['in', ['downcase', ['get', 'Type']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]],
-                    ['!', ['in', ['downcase', ['get', 'Style']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]]
+                'filter': ['all',
+                    ['!=', ['downcase', ['get', 'Type']], 'underground'],
+                    ['!=', ['downcase', ['get', 'Type']], 'ug'],
+                    ['!=', ['downcase', ['get', 'Type']], 'pad'],
+                    ['!=', ['downcase', ['get', 'Type']], 'padmount'],
+                    ['!=', ['downcase', ['get', 'Style']], 'underground'],
+                    ['!=', ['downcase', ['get', 'Style']], 'ug'],
+                    ['!=', ['downcase', ['get', 'Style']], 'pad'],
+                    ['!=', ['downcase', ['get', 'Style']], 'padmount']
                 ]
             });
             
-            // Underground transformers - green boxes
+            // Underground transformers - green squares
             map.addLayer({
                 'id': 'transformers-underground',
-                'type': 'symbol',
+                'type': 'circle',
                 'source': {
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.0lkxvrs2'
                 },
-                'source-layer': 'transformers',
-                'layout': {
-                    'icon-image': 'marker-15',
-                    'icon-size': [
+                'source-layer': '0lkxvrs2', // Using the tileset ID as source-layer
+                'paint': {
+                    'circle-radius': [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
-                        10, 0.8,
-                        15, 1.5
+                        10, 5,
+                        15, 14
                     ],
-                    'icon-allow-overlap': true
-                },
-                'paint': {
-                    'icon-color': '#48bb78',
-                    'icon-halo-color': '#38a169',
-                    'icon-halo-width': 2
+                    'circle-color': '#48bb78',
+                    'circle-stroke-color': '#38a169',
+                    'circle-stroke-width': 2,
+                    'circle-opacity': 0.9
                 },
                 'filter': ['any',
-                    ['in', ['downcase', ['get', 'Type']], ['literal', ['underground', 'ug', 'pad', 'padmount']]],
-                    ['in', ['downcase', ['get', 'Style']], ['literal', ['underground', 'ug', 'pad', 'padmount']]]
+                    ['==', ['downcase', ['get', 'Type']], 'underground'],
+                    ['==', ['downcase', ['get', 'Type']], 'ug'],
+                    ['==', ['downcase', ['get', 'Type']], 'pad'],
+                    ['==', ['downcase', ['get', 'Type']], 'padmount'],
+                    ['==', ['downcase', ['get', 'Style']], 'underground'],
+                    ['==', ['downcase', ['get', 'Style']], 'ug'],
+                    ['==', ['downcase', ['get', 'Style']], 'pad'],
+                    ['==', ['downcase', ['get', 'Style']], 'padmount']
                 ]
             });
             
@@ -545,7 +556,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.9i382k93'
                 },
-                'source-layer': 'overhead-feeders',
+                'source-layer': '9i382k93', // Using the tileset ID as source-layer
                 'paint': {
                     'line-color': '#4299e1',
                     'line-width': [
@@ -571,7 +582,7 @@
                     'type': 'vector',
                     'url': 'mapbox://fieldsense.00srtpq5'
                 },
-                'source-layer': 'underground-feeders',
+                'source-layer': '00srtpq5', // Using the tileset ID as source-layer
                 'paint': {
                     'line-color': '#ed8936',
                     'line-width': [
@@ -591,39 +602,12 @@
             }, 'transformers-overhead');
             
             // Hover effect for overhead transformers
-            let hoveredTransformerId = null;
-            
             map.on('mouseenter', 'transformers-overhead', function(e) {
                 map.getCanvas().style.cursor = 'pointer';
-                
-                if (hoveredTransformerId !== null) {
-                    map.setPaintProperty('transformers-overhead', 'circle-radius', [
-                        'case',
-                        ['==', ['id'], hoveredTransformerId],
-                        ['interpolate', ['linear'], ['zoom'], 10, 6, 15, 18],
-                        ['interpolate', ['linear'], ['zoom'], 10, 4, 15, 12]
-                    ]);
-                }
-                
-                hoveredTransformerId = e.features[0].id;
-                
-                map.setPaintProperty('transformers-overhead', 'circle-radius', [
-                    'case',
-                    ['==', ['id'], hoveredTransformerId],
-                    ['interpolate', ['linear'], ['zoom'], 10, 6, 15, 18],
-                    ['interpolate', ['linear'], ['zoom'], 10, 4, 15, 12]
-                ]);
             });
             
             map.on('mouseleave', 'transformers-overhead', function() {
                 map.getCanvas().style.cursor = '';
-                
-                if (hoveredTransformerId !== null) {
-                    map.setPaintProperty('transformers-overhead', 'circle-radius', [
-                        'interpolate', ['linear'], ['zoom'], 10, 4, 15, 12
-                    ]);
-                    hoveredTransformerId = null;
-                }
             });
             
             // Hover effect for underground transformers
