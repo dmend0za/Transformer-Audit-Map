@@ -89,48 +89,43 @@
     document.getElementById('unsupported').style.display = 'none';
 
     // Check if Mapbox GL is supported in the current browser/environment.
-    // The "Failed to initialize WebGL" error occurs when WebGL is not available.
     if (mapboxgl.supported()) {
         // --- MAPBOX INITIALIZATION ---
-        // Your provided access token
         mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-        // Initialize the map
+        // Initialize the map with a standard Mapbox style.
+        // This prevents conflicts with custom styles that might already contain the sources/layers.
         const map = new mapboxgl.Map({
             container: 'map', // The ID of the div element to hold the map
-            style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // Your custom map style
+            style: 'mapbox://styles/mapbox/light-v11', // Using a neutral base style
             center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
             zoom: 11.5, // Initial zoom level
-            failIfMajorPerformanceCaveat: false // Continue even if performance is not ideal
+            failIfMajorPerformanceCaveat: false
         });
 
         // --- MAP LOAD EVENT ---
         // This function runs once the map's style has finished loading.
-        // All layers and sources are added here to prevent errors.
         map.on('load', () => {
             // --- ADD TILESET SOURCES ---
-            // Add the source for transformers
+            // The code now has full control over adding sources and layers.
             map.addSource('transformers', {
                 type: 'vector',
-                url: 'mapbox://fieldsense.transformers-9cy3fu' // Your transformers tileset ID
+                url: 'mapbox://fieldsense.transformers-9cy3fu'
             });
 
-            // Add the source for electric meters
             map.addSource('meters', {
                 type: 'vector',
-                url: 'mapbox://fieldsense.electric_meters-ailda3' // Your meters tileset ID
+                url: 'mapbox://fieldsense.electric_meters-ailda3'
             });
 
-            // Add the source for overhead secondary lines
             map.addSource('secondary-oh', {
                 type: 'vector',
-                url: 'mapbox://fieldsense.secondary_OH-bui3wt' // Your OH feeder tileset ID
+                url: 'mapbox://fieldsense.secondary_OH-bui3wt'
             });
 
-            // Add the source for underground secondary lines
             map.addSource('secondary-ug', {
                 type: 'vector',
-                url: 'mapbox://fieldsense.secondary_UG-63wuoq' // Your UG feeder tileset ID
+                url: 'mapbox://fieldsense.secondary_UG-63wuoq'
             });
 
 
@@ -142,15 +137,15 @@
                 'id': 'ug-feeders',
                 'type': 'line',
                 'source': 'secondary-ug',
-                'source-layer': 'secondary_UG-63wuoq', // The layer name within the tileset
+                'source-layer': 'secondary_UG-63wuoq',
                 'layout': {
                     'line-join': 'round',
                     'line-cap': 'round'
                 },
                 'paint': {
-                    'line-color': '#ff8c00', // Bright orange for underground lines
+                    'line-color': '#ff8c00',
                     'line-width': 2,
-                    'line-dasharray': [2, 2] // Dashed line style
+                    'line-dasharray': [2, 2]
                 }
             });
 
@@ -159,33 +154,33 @@
                 'id': 'oh-feeders',
                 'type': 'line',
                 'source': 'secondary-oh',
-                'source-layer': 'secondary_OH-bui3wt', // The layer name within the tileset
+                'source-layer': 'secondary_OH-bui3wt',
                 'layout': {
                     'line-join': 'round',
                     'line-cap': 'round'
                 },
                 'paint': {
-                    'line-color': '#555555', // Dark gray for overhead lines
+                    'line-color': '#555555',
                     'line-width': 2
                 }
             });
 
-            // 3. Underground Transformers Layer (Green Squares)
+            // 3. Underground Transformers Layer (Green Circles)
             map.addLayer({
                 'id': 'transformers-underground',
                 'type': 'circle',
                 'source': 'transformers',
-                'source-layer': 'transformers-9cy3fu', // The layer name within the tileset
+                'source-layer': 'transformers-9cy3fu',
                 'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                 'paint': {
-                    'circle-color': '#2E8B57', // SeaGreen
+                    'circle-color': '#2E8B57',
                     'circle-radius': 7,
                     'circle-stroke-width': 1.5,
                     'circle-stroke-color': '#ffffff'
                 }
             });
 
-            // 4. Overhead Transformers Layer (Gray Cylinders/Circles)
+            // 4. Overhead Transformers Layer (Gray Circles)
             map.addLayer({
                 'id': 'transformers-overhead',
                 'type': 'circle',
@@ -193,7 +188,7 @@
                 'source-layer': 'transformers-9cy3fu',
                 'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                 'paint': {
-                    'circle-color': '#808080', // Gray
+                    'circle-color': '#808080',
                     'circle-radius': 6,
                     'circle-stroke-width': 1.5,
                     'circle-stroke-color': '#ffffff'
@@ -207,7 +202,7 @@
                 'source': 'meters',
                 'source-layer': 'electric_meters-ailda3',
                 'paint': {
-                    'circle-color': '#1E90FF', // DodgerBlue
+                    'circle-color': '#1E90FF',
                     'circle-radius': 5,
                     'circle-stroke-width': 1,
                     'circle-stroke-color': '#ffffff'
@@ -216,8 +211,6 @@
 
 
             // --- INTERACTIVITY ---
-
-            // Create a reusable popup object
             const popup = new mapboxgl.Popup({
                 closeButton: false,
                 closeOnClick: false
