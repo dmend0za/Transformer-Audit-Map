@@ -129,15 +129,14 @@
 
                 // --- ADD LAYERS ---
                 // NOTE: The 'source-layer' must be the name of the layer within the tileset.
-                // You can find this name by going to your Mapbox Studio, selecting the tileset,
-                // and looking at the layer name listed there. It's often the original filename.
+                // This is often the original filename without the extension.
 
                 // 1. Underground Feeders Layer
                 map.addLayer({
                     'id': 'ug-feeders',
                     'type': 'line',
                     'source': 'secondary-ug',
-                    'source-layer': 'secondary_UG-63wuoq', // **CHECK THIS NAME IN MAPBOX**
+                    'source-layer': 'secondary_UG', // Corrected source layer name
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
                 });
@@ -147,7 +146,7 @@
                     'id': 'oh-feeders',
                     'type': 'line',
                     'source': 'secondary-oh',
-                    'source-layer': 'secondary_OH-bui3wt', // **CHECK THIS NAME IN MAPBOX**
+                    'source-layer': 'secondary_OH', // Corrected source layer name
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#555555', 'line-width': 2 }
                 });
@@ -157,7 +156,7 @@
                     'id': 'transformers-underground',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformers-9cy3fu', // **CHECK THIS NAME IN MAPBOX**
+                    'source-layer': 'transformers', // Corrected source layer name
                     'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -167,7 +166,7 @@
                     'id': 'transformers-overhead',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformers-9cy3fu', // **CHECK THIS NAME IN MAPBOX**
+                    'source-layer': 'transformers', // Corrected source layer name
                     'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -177,7 +176,7 @@
                     'id': 'electric-meters',
                     'type': 'circle',
                     'source': 'meters',
-                    'source-layer': 'electric_meters-ailda3', // **CHECK THIS NAME IN MAPBOX**
+                    'source-layer': 'electric_meters', // Corrected source layer name
                     'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
                 });
 
