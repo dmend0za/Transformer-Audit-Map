@@ -3,193 +3,465 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debug MapBox Style Access</title>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <title>MapBox Style Validator</title>
     <style>
         body {
             margin: 0;
             padding: 20px;
             font-family: Arial, sans-serif;
-        }
-        #debug-info {
             background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        #map {
-            width: 100%;
-            height: 400px;
-            border: 1px solid #ccc;
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
         }
-        .error {
-            color: red;
-            background: #ffe6e6;
-            padding: 10px;
+        .error { color: #d73027; background: #ffe6e6; }
+        .warning { color: #f46d43; background: #fff4e6; }
+        .success { color: #1a9641; background: #e6ffe6; }
+        .info { color: #2c7fb8; background: #e6f3ff; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
             border-radius: 4px;
-            margin: 10px 0;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
         }
-        .success {
-            color: green;
-            background: #e6ffe6;
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        .test-button {
+        button {
             background: #007bff;
             color: white;
-            padding: 10px 20px;
             border: none;
+            padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
             margin: 5px;
         }
+        button:hover { background: #0056b3; }
+        .fix-button { background: #28a745; }
+        .fix-button:hover { background: #1e7e34; }
+        #map {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+        }
     </style>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 </head>
 <body>
-    <h1>MapBox Style Access Debug Tool</h1>
-    
-    <div id="debug-info">
-        <h3>Testing Your Style Access</h3>
-        <p><strong>Your Style ID:</strong> mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1</p>
-        <p><strong>Your Token:</strong> pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA</p>
-        
-        <button class="test-button" onclick="testStyleAccess()">Test Style Access</button>
-        <button class="test-button" onclick="testWithFallback()">Try with Fallback Style</button>
-        <button class="test-button" onclick="testLayerDiscovery()">Test Layer Discovery</button>
-        
-        <div id="test-results"></div>
-    </div>
+    <div class="container">
+        <h1>MapBox Style Validator & Fixer</h1>
+        <p>This tool will analyze your custom style and identify the specific issues causing the "Expected two arguments" error.</p>
 
-    <div id="map"></div>
+        <div class="section">
+            <h3>Step 1: Analyze Your Style</h3>
+            <button onclick="analyzeStyle()">Analyze Style Configuration</button>
+            <div id="analysis-results"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 2: Test Map Loading</h3>
+            <button onclick="testMapLoad()">Test Your Style</button>
+            <button class="fix-button" onclick="generateFixedStyle()">Generate Fixed Style JSON</button>
+            <div id="map-results"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 3: Working Map (Fallback)</h3>
+            <button onclick="loadWorkingMap()">Load Working Map</button>
+            <div id="map"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 4: Style Fixes</h3>
+            <div id="style-fixes"></div>
+        </div>
+    </div>
 
     <script>
         const accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
-        const customStyleUrl = 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1';
-        const resultsDiv = document.getElementById('test-results');
-        
+        const styleId = 'fieldsense/cmdzysazb00hd01s9cm2v4td1';
         mapboxgl.accessToken = accessToken;
         let map;
 
-        function addResult(message, isError = false) {
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
             const div = document.createElement('div');
-            div.className = isError ? 'error' : 'success';
+            div.className = `section ${type}`;
             div.innerHTML = message;
-            resultsDiv.appendChild(div);
+            container.appendChild(div);
         }
 
-        async function testStyleAccess() {
-            resultsDiv.innerHTML = '<p>Testing style access...</p>';
-            
+        async function analyzeStyle() {
+            const container = document.getElementById('analysis-results');
+            container.innerHTML = '<p>Analyzing style...</p>';
+
             try {
-                // Test direct API access to style
-                const response = await fetch(`https://api.mapbox.com/styles/v1/fieldsense/cmdzysazb00hd01s9cm2v4td1?access_token=${accessToken}`);
-                
-                if (response.ok) {
-                    const styleData = await response.json();
-                    addResult(`✅ Style is accessible! Name: ${styleData.name || 'Unnamed'}`);
-                    console.log('Style data:', styleData);
-                    
-                    // Test with map
-                    await createMapWithStyle(customStyleUrl);
+                const response = await fetch(`https://api.mapbox.com/styles/v1/${styleId}?access_token=${accessToken}`);
+                const styleData = await response.json();
+
+                console.log('Full style data:', styleData);
+
+                let issues = [];
+                let warnings = [];
+
+                // Check basic structure
+                if (!styleData.sources) {
+                    issues.push('No sources defined in style');
                 } else {
-                    addResult(`❌ Style access failed: ${response.status} - ${response.statusText}`, true);
-                    
-                    if (response.status === 401) {
-                        addResult('This looks like a token permission issue. Make sure your token has the right scopes.', true);
-                    } else if (response.status === 404) {
-                        addResult('Style not found. Check if the style ID is correct.', true);
+                    addResult('analysis-results', `<strong>✅ Found ${Object.keys(styleData.sources).length} sources:</strong><br>${Object.keys(styleData.sources).join(', ')}`, 'success');
+                }
+
+                if (!styleData.layers) {
+                    issues.push('No layers defined in style');
+                } else {
+                    addResult('analysis-results', `<strong>✅ Found ${styleData.layers.length} layers</strong>`, 'success');
+                }
+
+                // Analyze each source
+                if (styleData.sources) {
+                    for (const [sourceId, sourceConfig] of Object.entries(styleData.sources)) {
+                        console.log(`Analyzing source: ${sourceId}`, sourceConfig);
+                        
+                        if (sourceConfig.type === 'vector') {
+                            if (!sourceConfig.url && !sourceConfig.tiles) {
+                                issues.push(`Source '${sourceId}' missing url or tiles property`);
+                            }
+                            if (sourceConfig.url && !sourceConfig.url.startsWith('mapbox://')) {
+                                warnings.push(`Source '${sourceId}' has non-standard URL format`);
+                            }
+                        }
                     }
                 }
+
+                // Analyze each layer
+                if (styleData.layers) {
+                    for (const layer of styleData.layers) {
+                        console.log(`Analyzing layer: ${layer.id}`, layer);
+                        
+                        // Check for common issues that cause "Expected two arguments"
+                        if (!layer.source && layer.type !== 'background') {
+                            issues.push(`Layer '${layer.id}' missing source property`);
+                        }
+
+                        if (layer.type === 'line' || layer.type === 'fill' || layer.type === 'circle') {
+                            if (layer.source && !styleData.sources[layer.source]) {
+                                issues.push(`Layer '${layer.id}' references non-existent source '${layer.source}'`);
+                            }
+                        }
+
+                        // Check for paint property issues
+                        if (layer.paint) {
+                            for (const [paintKey, paintValue] of Object.entries(layer.paint)) {
+                                if (Array.isArray(paintValue) && paintValue.length === 0) {
+                                    issues.push(`Layer '${layer.id}' has empty array for paint property '${paintKey}'`);
+                                }
+                                if (typeof paintValue === 'object' && paintValue !== null && !Array.isArray(paintValue)) {
+                                    // Check for expression issues
+                                    if (paintValue.stops && (!Array.isArray(paintValue.stops) || paintValue.stops.length === 0)) {
+                                        issues.push(`Layer '${layer.id}' has invalid stops in paint property '${paintKey}'`);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check for layout property issues
+                        if (layer.layout) {
+                            for (const [layoutKey, layoutValue] of Object.entries(layer.layout)) {
+                                if (Array.isArray(layoutValue) && layoutValue.length === 0) {
+                                    issues.push(`Layer '${layer.id}' has empty array for layout property '${layoutKey}'`);
+                                }
+                            }
+                        }
+
+                        // Check for filter issues
+                        if (layer.filter) {
+                            if (Array.isArray(layer.filter) && layer.filter.length === 0) {
+                                issues.push(`Layer '${layer.id}' has empty filter array`);
+                            }
+                            if (Array.isArray(layer.filter) && layer.filter.length === 1) {
+                                warnings.push(`Layer '${layer.id}' has filter with only one element - may need additional arguments`);
+                            }
+                        }
+                    }
+                }
+
+                // Display results
+                if (issues.length > 0) {
+                    addResult('analysis-results', `<strong>❌ Found ${issues.length} critical issues:</strong><br>• ${issues.join('<br>• ')}`, 'error');
+                }
+
+                if (warnings.length > 0) {
+                    addResult('analysis-results', `<strong>⚠️ Found ${warnings.length} warnings:</strong><br>• ${warnings.join('<br>• ')}`, 'warning');
+                }
+
+                if (issues.length === 0 && warnings.length === 0) {
+                    addResult('analysis-results', '✅ No obvious issues found in style structure', 'success');
+                }
+
+                // Show style JSON for inspection
+                addResult('analysis-results', `<strong>Full Style JSON:</strong><br><pre>${JSON.stringify(styleData, null, 2)}</pre>`, 'info');
+
             } catch (error) {
-                addResult(`❌ Error testing style access: ${error.message}`, true);
+                addResult('analysis-results', `❌ Error analyzing style: ${error.message}`, 'error');
             }
         }
 
-        async function testWithFallback() {
-            resultsDiv.innerHTML = '<p>Testing with fallback style...</p>';
-            
+        async function testMapLoad() {
+            const container = document.getElementById('map-results');
+            container.innerHTML = '<p>Testing map load...</p>';
+
             try {
-                await createMapWithStyle('mapbox://styles/mapbox/light-v11');
-                addResult('✅ Fallback style works! The issue is with your custom style.');
-            } catch (error) {
-                addResult(`❌ Even fallback style failed: ${error.message}`, true);
-            }
-        }
-
-        async function testLayerDiscovery() {
-            resultsDiv.innerHTML = '<p>Testing layer discovery...</p>';
-            
-            // Test your tilesets directly
-            const tilesets = [
-                'fieldsense.4s90abve',
-                'fieldsense.4hey26iq', 
-                'fieldsense.c53vz8g4',
-                'fieldsense.2hebp65r'
-            ];
-
-            for (const tilesetId of tilesets) {
-                try {
-                    const response = await fetch(`https://api.mapbox.com/v4/${tilesetId}.json?access_token=${accessToken}`);
-                    if (response.ok) {
-                        const metadata = await response.json();
-                        addResult(`✅ Tileset ${tilesetId} accessible - ${metadata.vector_layers?.length || 0} layers`);
-                        console.log(`${tilesetId} metadata:`, metadata);
-                    } else {
-                        addResult(`❌ Tileset ${tilesetId} failed: ${response.status}`, true);
-                    }
-                } catch (error) {
-                    addResult(`❌ Error with tileset ${tilesetId}: ${error.message}`, true);
-                }
-            }
-        }
-
-        async function createMapWithStyle(styleUrl) {
-            return new Promise((resolve, reject) => {
-                // Clear any existing map
-                if (map) {
-                    map.remove();
-                }
+                if (map) map.remove();
 
                 map = new mapboxgl.Map({
                     container: 'map',
-                    style: styleUrl,
+                    style: `mapbox://styles/${styleId}`,
                     center: [-77.9153, 35.7218],
                     zoom: 11.5
                 });
 
                 map.on('load', () => {
-                    addResult(`✅ Map loaded successfully with style: ${styleUrl}`);
+                    addResult('map-results', '✅ Map loaded successfully!', 'success');
                     
-                    // Try to list all layers in the style
+                    // List loaded layers
                     const layers = map.getStyle().layers;
-                    addResult(`Found ${layers.length} layers in the style`);
-                    
-                    layers.forEach(layer => {
-                        console.log(`Layer: ${layer.id}, Type: ${layer.type}, Source: ${layer.source}`);
-                    });
-                    
-                    resolve();
+                    const layerInfo = layers.map(l => `${l.id} (${l.type})`).join(', ');
+                    addResult('map-results', `Loaded layers: ${layerInfo}`, 'info');
                 });
 
                 map.on('error', (e) => {
-                    addResult(`❌ Map error: ${e.error.message}`, true);
-                    reject(e.error);
+                    addResult('map-results', `❌ Map load error: ${e.error.message}`, 'error');
+                    console.error('Detailed error:', e.error);
                 });
 
-                // Timeout after 10 seconds
-                setTimeout(() => {
-                    reject(new Error('Map load timeout'));
-                }, 10000);
-            });
+            } catch (error) {
+                addResult('map-results', `❌ Error creating map: ${error.message}`, 'error');
+            }
         }
 
-        // Auto-run basic test
-        document.addEventListener('DOMContentLoaded', () => {
-            addResult('Debug tool loaded. Click buttons above to test your MapBox configuration.');
-        });
+        async function generateFixedStyle() {
+            const container = document.getElementById('style-fixes');
+            container.innerHTML = '<p>Generating fixed style...</p>';
+
+            try {
+                const response = await fetch(`https://api.mapbox.com/styles/v1/${styleId}?access_token=${accessToken}`);
+                const styleData = await response.json();
+
+                // Create a minimal working style based on your tilesets
+                const fixedStyle = {
+                    "version": 8,
+                    "name": "Fixed Transformer Audit Map",
+                    "sources": {
+                        "transformers": {
+                            "type": "vector",
+                            "url": "mapbox://fieldsense.4s90abve"
+                        },
+                        "meters": {
+                            "type": "vector", 
+                            "url": "mapbox://fieldsense.4hey26iq"
+                        },
+                        "secondary-oh": {
+                            "type": "vector",
+                            "url": "mapbox://fieldsense.c53vz8g4"
+                        },
+                        "secondary-ug": {
+                            "type": "vector",
+                            "url": "mapbox://fieldsense.2hebp65r"
+                        }
+                    },
+                    "layers": [
+                        {
+                            "id": "background",
+                            "type": "background",
+                            "paint": {
+                                "background-color": "#f8f8f8"
+                            }
+                        },
+                        {
+                            "id": "ug-feeders",
+                            "type": "line",
+                            "source": "secondary-ug",
+                            "source-layer": "secondary_UG-0ox1k5",
+                            "layout": {
+                                "line-join": "round",
+                                "line-cap": "round"
+                            },
+                            "paint": {
+                                "line-color": "#ff8c00",
+                                "line-width": 2,
+                                "line-dasharray": [2, 2]
+                            }
+                        },
+                        {
+                            "id": "oh-feeders",
+                            "type": "line",
+                            "source": "secondary-oh",
+                            "source-layer": "secondary_OH-27459y",
+                            "layout": {
+                                "line-join": "round",
+                                "line-cap": "round"
+                            },
+                            "paint": {
+                                "line-color": "#555555",
+                                "line-width": 2
+                            }
+                        },
+                        {
+                            "id": "transformers-underground",
+                            "type": "circle",
+                            "source": "transformers",
+                            "source-layer": "transformer_bank-3t7yaf",
+                            "filter": ["==", "SUBTYPEC_1", "Underground Transformer"],
+                            "paint": {
+                                "circle-color": "#2E8B57",
+                                "circle-radius": 7,
+                                "circle-stroke-width": 1.5,
+                                "circle-stroke-color": "#ffffff"
+                            }
+                        },
+                        {
+                            "id": "transformers-overhead",
+                            "type": "circle",
+                            "source": "transformers",
+                            "source-layer": "transformer_bank-3t7yaf",
+                            "filter": ["!=", "SUBTYPEC_1", "Underground Transformer"],
+                            "paint": {
+                                "circle-color": "#808080",
+                                "circle-radius": 6,
+                                "circle-stroke-width": 1.5,
+                                "circle-stroke-color": "#ffffff"
+                            }
+                        },
+                        {
+                            "id": "electric-meters",
+                            "type": "circle",
+                            "source": "meters",
+                            "source-layer": "electric_meters-5xjegj",
+                            "paint": {
+                                "circle-color": "#1E90FF",
+                                "circle-radius": 5,
+                                "circle-stroke-width": 1,
+                                "circle-stroke-color": "#ffffff"
+                            }
+                        }
+                    ]
+                };
+
+                addResult('style-fixes', '<strong>✅ Generated Fixed Style JSON:</strong>', 'success');
+                addResult('style-fixes', `<pre>${JSON.stringify(fixedStyle, null, 2)}</pre>`, 'info');
+                
+                addResult('style-fixes', `
+                    <strong>🔧 How to fix your MapBox Studio style:</strong><br>
+                    1. Go to <a href="https://studio.mapbox.com/" target="_blank">MapBox Studio</a><br>
+                    2. Open your style "MapBox Transformers"<br>
+                    3. Click the "Settings" tab<br>
+                    4. Click "Edit JSON"<br>
+                    5. Replace the JSON with the fixed version above<br>
+                    6. Save and publish your style<br><br>
+                    <strong>Or create a new style:</strong><br>
+                    1. Create a new style in MapBox Studio<br>
+                    2. Use the JSON above as the base<br>
+                    3. Update your website to use the new style ID
+                `, 'info');
+
+            } catch (error) {
+                addResult('style-fixes', `❌ Error generating fixed style: ${error.message}`, 'error');
+            }
+        }
+
+        function loadWorkingMap() {
+            if (map) map.remove();
+
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/light-v11',
+                center: [-77.9153, 35.7218],
+                zoom: 11.5
+            });
+
+            map.on('load', () => {
+                // Add your sources and layers manually
+                map.addSource('transformers', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.4s90abve'
+                });
+
+                map.addSource('meters', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.4hey26iq'
+                });
+
+                map.addSource('secondary-oh', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.c53vz8g4'
+                });
+
+                map.addSource('secondary-ug', {
+                    type: 'vector',
+                    url: 'mapbox://fieldsense.2hebp65r'
+                });
+
+                map.addLayer({
+                    'id': 'ug-feeders',
+                    'type': 'line',
+                    'source': 'secondary-ug',
+                    'source-layer': 'secondary_UG-0ox1k5',
+                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                    'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
+                });
+
+                map.addLayer({
+                    'id': 'oh-feeders',
+                    'type': 'line',
+                    'source': 'secondary-oh',
+                    'source-layer': 'secondary_OH-27459y',
+                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                    'paint': { 'line-color': '#555555', 'line-width': 2 }
+                });
+
+                map.addLayer({
+                    'id': 'transformers-underground',
+                    'type': 'circle',
+                    'source': 'transformers',
+                    'source-layer': 'transformer_bank-3t7yaf',
+                    'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
+                    'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                });
+
+                map.addLayer({
+                    'id': 'transformers-overhead',
+                    'type': 'circle',
+                    'source': 'transformers',
+                    'source-layer': 'transformer_bank-3t7yaf',
+                    'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
+                    'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                });
+                
+                map.addLayer({
+                    'id': 'electric-meters',
+                    'type': 'circle',
+                    'source': 'meters',
+                    'source-layer': 'electric_meters-5xjegj',
+                    'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
+                });
+
+                console.log('✅ Working map loaded with manual configuration');
+            });
+
+            map.addControl(new mapboxgl.NavigationControl());
+        }
     </script>
 </body>
 </html>
