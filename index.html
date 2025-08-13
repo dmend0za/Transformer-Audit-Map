@@ -22,6 +22,67 @@
             bottom: 0;
             width: 100%;
         }
+
+        #legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            font-size: 14px;
+            min-width: 200px;
+            border: 1px solid #ccc;
+        }
+
+        #legend h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .legend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+            padding: 4px 0;
+        }
+
+        .legend-symbol {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border: 1px solid #000;
+            display: inline-block;
+        }
+
+        .legend-symbol.underground {
+            background-color: #4CAF50;
+        }
+
+        .legend-symbol.overhead {
+            background-color: hsl(123, 7%, 85%);
+            border-radius: 50%;
+        }
+
+        .legend-symbol.meter {
+            background-color: #555555;
+            border: 1px solid #fff;
+            border-radius: 50%;
+        }
+
+        .legend-count {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-pending { color: #ff6b35; }
+        .status-completed { color: #4CAF50; }
+        .status-total { color: #333; }
         
         #unsupported {
             display: none;
@@ -77,6 +138,45 @@
 <body>
 
 <div id="map"></div>
+<div id="legend">
+    <h3>Transformer Audit Status</h3>
+    <div class="legend-item">
+        <div>
+            <span class="legend-symbol underground"></span>
+            Underground
+        </div>
+        <span class="legend-count" id="underground-count">-</span>
+    </div>
+    <div class="legend-item">
+        <div>
+            <span class="legend-symbol overhead"></span>
+            Overhead
+        </div>
+        <span class="legend-count" id="overhead-count">-</span>
+    </div>
+    <hr style="margin: 10px 0; border: none; border-top: 1px solid #ddd;">
+    <div class="legend-item">
+        <div class="status-total">Total Transformers:</div>
+        <span class="legend-count status-total" id="total-count">-</span>
+    </div>
+    <div class="legend-item">
+        <div class="status-completed">Completed Audits:</div>
+        <span class="legend-count status-completed" id="completed-count">0</span>
+    </div>
+    <div class="legend-item">
+        <div class="status-pending">Pending Audits:</div>
+        <span class="legend-count status-pending" id="pending-count">-</span>
+    </div>
+    <div style="font-size: 12px; color: #666; margin-top: 8px;">
+        <div class="legend-item">
+            <div>
+                <span class="legend-symbol meter"></span>
+                Electric Meters
+            </div>
+            <span class="legend-count" id="meter-count">-</span>
+        </div>
+    </div>
+</div>
 <div id="unsupported">
     <h2>Map Display Error</h2>
     <p>Sorry, your browser or environment does not support WebGL, which is required to view this map.</p>
@@ -92,10 +192,10 @@
             // --- MAPBOX INITIALIZATION ---
             mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-            // Initialize the map with a standard Mapbox style.
+            // Initialize the map with a high-quality basemap style.
             const map = new mapboxgl.Map({
                 container: 'map', // The ID of the div element to hold the map
-                style: 'mapbox://styles/mapbox/streets-v12', // Using satellite basemap
+                style: 'mapbox://styles/mapbox/satellite-streets-v12', // High-quality satellite with street labels
                 center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
                 zoom: 13, // Initial zoom level
                 failIfMajorPerformanceCaveat: false
@@ -104,6 +204,110 @@
             // --- MAP LOAD EVENT ---
             // This function runs once the map's style has finished loading.
             map.on('load', () => {
+                // Initialize audit status tracking
+                let auditStatus = {
+                    total: 0,
+                    completed: 0,
+                    pending: 0,
+                    underground: 0,
+                    overhead: 0,
+                    meters: 0,
+                    completedTransformers: new Set() // Track completed transformer IDs
+                };
+
+                // Function to update legend counts
+                function updateLegendCounts() {
+                    document.getElementById('total-count').textContent = auditStatus.total;
+                    document.getElementById('completed-count').textContent = auditStatus.completed;
+                    document.getElementById('pending-count').textContent = auditStatus.pending;
+                    document.getElementById('underground-count').textContent = auditStatus.underground;
+                    document.getElementById('overhead-count').textContent = auditStatus.overhead;
+                    document.getElementById('meter-count').textContent = auditStatus.meters;
+                }
+
+                // Function to count features after map loads
+                function countMapFeatures() {
+                    // Count transformers when layers are loaded
+                    map.on('sourcedata', (e) => {
+                        if (e.sourceId === 'transformers' && e.isSourceLoaded) {
+                            const features = map.querySourceFeatures('transformers', {
+                                sourceLayer: 'transformer_bank-3t7yaf'
+                            });
+                            
+                            auditStatus.underground = features.filter(f => 
+                                f.properties.SUBTYPEC_1 === 'Underground Transformer'
+                            ).length;
+                            
+                            auditStatus.overhead = features.filter(f => 
+                                f.properties.SUBTYPEC_1 !== 'Underground Transformer'
+                            ).length;
+                            
+                            auditStatus.total = auditStatus.underground + auditStatus.overhead;
+                            auditStatus.pending = auditStatus.total - auditStatus.completed;
+                            
+                            updateLegendCounts();
+                        }
+                        
+                        if (e.sourceId === 'meters' && e.isSourceLoaded) {
+                            const meterFeatures = map.querySourceFeatures('meters', {
+                                sourceLayer: 'electric_meters-5xjegj'
+                            });
+                            auditStatus.meters = meterFeatures.length;
+                            updateLegendCounts();
+                        }
+                    });
+                }
+
+                // Function to check audit status from Google Sheets (placeholder for your integration)
+                async function checkAuditStatus() {
+                    // TODO: Replace this with your Google Sheets API call
+                    // This is where you'll fetch the audit completion status
+                    
+                    try {
+                        // Placeholder for Google Sheets integration
+                        // const response = await fetch('YOUR_GOOGLE_SHEETS_API_ENDPOINT');
+                        // const data = await response.json();
+                        
+                        // Example of how to process completed audits:
+                        // const completedIds = data.filter(row => row.status === 'complete').map(row => row.transformerId);
+                        // updateCompletedTransformers(completedIds);
+                        
+                        console.log('Audit status check - ready for Google Sheets integration');
+                    } catch (error) {
+                        console.error('Error checking audit status:', error);
+                    }
+                }
+
+                // Function to update completed transformers and hide them from map
+                function updateCompletedTransformers(completedIds) {
+                    auditStatus.completedTransformers = new Set(completedIds);
+                    auditStatus.completed = completedIds.length;
+                    auditStatus.pending = auditStatus.total - auditStatus.completed;
+                    
+                    // Update transformer layer filters to hide completed ones
+                    const incompleteFilter = ['!in', 'OBJECTID', ...completedIds];
+                    
+                    // Apply filters to hide completed transformers
+                    map.setFilter('transformers-underground', [
+                        'all',
+                        ['==', 'SUBTYPEC_1', 'Underground Transformer'],
+                        incompleteFilter
+                    ]);
+                    
+                    map.setFilter('transformers-overhead', [
+                        'all',
+                        ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
+                        incompleteFilter
+                    ]);
+                    
+                    map.setFilter('transformer-labels', incompleteFilter);
+                    
+                    updateLegendCounts();
+                }
+
+                // Expose functions globally for Google Sheets integration
+                window.updateAuditStatus = updateCompletedTransformers;
+                window.refreshAuditData = checkAuditStatus;
                 // --- ADD TILESET SOURCES ---
                 // Using the verified list of Tileset IDs.
                 map.addSource('transformers', {
