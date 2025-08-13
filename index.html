@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transformer Audit Map</title>
+    <title>Transformer Audit Map - Dynamic Configuration</title>
     <!-- Mapbox GL JS CSS -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <!-- Mapbox GL JS -->
@@ -35,6 +35,18 @@
             text-align: center;
             background-color: #f8f8f8;
             flex-direction: column;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
         }
 
         /* Styling for the popups */
@@ -77,11 +89,14 @@
 <body>
 
 <div id="map"></div>
+<div id="loading">
+    <h3>Loading tileset configurations...</h3>
+    <p>Fetching MapBox source layer metadata...</p>
+</div>
 <div id="unsupported">
     <h2>Map Display Error</h2>
     <p>Sorry, your browser or environment does not support WebGL, which is required to view this map.</p>
 </div>
-
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -93,22 +108,324 @@
             // --- MAPBOX INITIALIZATION ---
             mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-            // Initialize the map with your custom Mapbox style.
+            // Initialize the map with a standard Mapbox style.
             const map = new mapboxgl.Map({
-                container: 'map', // The ID of the div element to hold the map
-                style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // **UPDATED** Using your custom style
+                container: 'map',
+                style: 'mapbox://styles/mapbox/light-v11',
                 center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
-                zoom: 11.5, // Initial zoom level
+                zoom: 11.5,
                 failIfMajorPerformanceCaveat: false
             });
 
-            // --- MAP LOAD EVENT ---
-            // This function runs once the map's style has finished loading.
-            map.on('load', () => {
-                // --- LAYERS AND SOURCES ARE NOW HANDLED BY YOUR MAPBOX STYLE ---
-                // No need to add sources or layers here anymore.
+            // Configuration for your tilesets
+            const tilesetConfigs = [
+                {
+                    sourceId: 'transformers',
+                    tilesetId: 'fieldsense.4s90abve',
+                    url: 'mapbox://fieldsense.4s90abve'
+                },
+                {
+                    sourceId: 'meters',
+                    tilesetId: 'fieldsense.4hey26iq',
+                    url: 'mapbox://fieldsense.4hey26iq'
+                },
+                {
+                    sourceId: 'secondary-oh',
+                    tilesetId: 'fieldsense.c53vz8g4',
+                    url: 'mapbox://fieldsense.c53vz8g4'
+                },
+                {
+                    sourceId: 'secondary-ug',
+                    tilesetId: 'fieldsense.2hebp65r',
+                    url: 'mapbox://fieldsense.2hebp65r'
+                }
+            ];
 
-                // --- INTERACTIVITY ---
+            // Function to fetch tileset metadata
+            async function fetchTilesetMetadata(tilesetId) {
+                try {
+                    const response = await fetch(`https://api.mapbox.com/v4/${tilesetId}.json?access_token=${mapboxgl.accessToken}`);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    console.error(`Error fetching metadata for ${tilesetId}:`, error);
+                    return null;
+                }
+            }
+
+            // Function to fetch tileset recipe (if available)
+            async function fetchTilesetRecipe(tilesetId) {
+                try {
+                    const response = await fetch(`https://api.mapbox.com/tilesets/v1/${tilesetId}/recipe?access_token=${mapboxgl.accessToken}`);
+                    if (!response.ok) {
+                        // Recipe might not be available for all tilesets (especially uploaded ones)
+                        console.log(`Recipe not available for ${tilesetId}`);
+                        return null;
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.log(`Recipe not available for ${tilesetId}:`, error.message);
+                    return null;
+                }
+            }
+
+            // Function to create layer configurations from MapBox metadata
+            function createLayerConfigFromMetadata(sourceId, tilesetMetadata, recipe) {
+                const layers = [];
+                
+                if (!tilesetMetadata || !tilesetMetadata.vector_layers) {
+                    console.warn(`No vector layers found for ${sourceId}`);
+                    return layers;
+                }
+
+                tilesetMetadata.vector_layers.forEach(vectorLayer => {
+                    const layerConfig = {
+                        sourceId: sourceId,
+                        sourceLayer: vectorLayer.id,
+                        fields: vectorLayer.fields || {},
+                        description: vectorLayer.description || '',
+                        minzoom: vectorLayer.minzoom || tilesetMetadata.minzoom || 0,
+                        maxzoom: vectorLayer.maxzoom || tilesetMetadata.maxzoom || 22
+                    };
+
+                    // Apply recipe configurations if available
+                    if (recipe && recipe.recipe && recipe.recipe.layers) {
+                        const recipeLayer = recipe.recipe.layers[vectorLayer.id];
+                        if (recipeLayer) {
+                            layerConfig.minzoom = recipeLayer.minzoom || layerConfig.minzoom;
+                            layerConfig.maxzoom = recipeLayer.maxzoom || layerConfig.maxzoom;
+                            layerConfig.recipeConfig = recipeLayer;
+                        }
+                    }
+
+                    layers.push(layerConfig);
+                });
+
+                return layers;
+            }
+
+            // Function to determine appropriate styling based on layer metadata
+            function getLayerStyling(layerConfig, sourceId) {
+                const sourceLayer = layerConfig.sourceLayer;
+                const fields = layerConfig.fields;
+
+                // Apply styling based on source and layer characteristics
+                if (sourceId === 'transformers') {
+                    if (fields.SUBTYPEC_1) {
+                        return [
+                            {
+                                'id': `${sourceLayer}-underground`,
+                                'type': 'circle',
+                                'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
+                                'paint': { 
+                                    'circle-color': '#2E8B57', 
+                                    'circle-radius': 7, 
+                                    'circle-stroke-width': 1.5, 
+                                    'circle-stroke-color': '#ffffff' 
+                                }
+                            },
+                            {
+                                'id': `${sourceLayer}-overhead`,
+                                'type': 'circle',
+                                'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
+                                'paint': { 
+                                    'circle-color': '#808080', 
+                                    'circle-radius': 6, 
+                                    'circle-stroke-width': 1.5, 
+                                    'circle-stroke-color': '#ffffff' 
+                                }
+                            }
+                        ];
+                    }
+                } else if (sourceId === 'meters') {
+                    return [{
+                        'id': `${sourceLayer}-points`,
+                        'type': 'circle',
+                        'paint': { 
+                            'circle-color': '#1E90FF', 
+                            'circle-radius': 5, 
+                            'circle-stroke-width': 1, 
+                            'circle-stroke-color': '#ffffff' 
+                        }
+                    }];
+                } else if (sourceId === 'secondary-oh') {
+                    return [{
+                        'id': `${sourceLayer}-lines`,
+                        'type': 'line',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#555555', 'line-width': 2 }
+                    }];
+                } else if (sourceId === 'secondary-ug') {
+                    return [{
+                        'id': `${sourceLayer}-lines`,
+                        'type': 'line',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
+                    }];
+                }
+
+                // Default styling
+                return [{
+                    'id': `${sourceLayer}-default`,
+                    'type': 'circle',
+                    'paint': { 'circle-color': '#666666', 'circle-radius': 4 }
+                }];
+            }
+
+            // Main function to load and configure map
+            async function loadMapWithDynamicConfig() {
+                try {
+                    console.log('Fetching tileset configurations...');
+                    
+                    // Fetch metadata and recipes for all tilesets
+                    const configPromises = tilesetConfigs.map(async config => {
+                        const [metadata, recipe] = await Promise.all([
+                            fetchTilesetMetadata(config.tilesetId),
+                            fetchTilesetRecipe(config.tilesetId)
+                        ]);
+                        
+                        return {
+                            ...config,
+                            metadata,
+                            recipe,
+                            layers: createLayerConfigFromMetadata(config.sourceId, metadata, recipe)
+                        };
+                    });
+
+                    const enrichedConfigs = await Promise.all(configPromises);
+                    
+                    console.log('Tileset configurations loaded:', enrichedConfigs);
+
+                    // Hide loading indicator
+                    document.getElementById('loading').style.display = 'none';
+
+                    map.on('load', () => {
+                        // Add sources
+                        enrichedConfigs.forEach(config => {
+                            if (config.metadata) {
+                                map.addSource(config.sourceId, {
+                                    type: 'vector',
+                                    url: config.url
+                                });
+                                console.log(`Added source: ${config.sourceId}`);
+                            }
+                        });
+
+                        // Add layers based on dynamic configuration
+                        const interactiveLayers = [];
+                        
+                        enrichedConfigs.forEach(config => {
+                            if (!config.layers || config.layers.length === 0) return;
+
+                            config.layers.forEach(layerConfig => {
+                                const layerStyles = getLayerStyling(layerConfig, config.sourceId);
+                                
+                                layerStyles.forEach(style => {
+                                    const layerDef = {
+                                        ...style,
+                                        'source': config.sourceId,
+                                        'source-layer': layerConfig.sourceLayer,
+                                        'minzoom': layerConfig.minzoom,
+                                        'maxzoom': layerConfig.maxzoom
+                                    };
+
+                                    map.addLayer(layerDef);
+                                    interactiveLayers.push(style.id);
+                                    console.log(`Added layer: ${style.id} from source-layer: ${layerConfig.sourceLayer}`);
+                                });
+                            });
+                        });
+
+                        // Add interactivity
+                        setupInteractivity(interactiveLayers);
+                    });
+
+                } catch (error) {
+                    console.error('Error loading map configuration:', error);
+                    document.getElementById('loading').innerHTML = '<h3>Error loading configuration</h3><p>Failed to fetch tileset metadata. Using fallback configuration.</p>';
+                    
+                    // Fallback to your original configuration
+                    loadFallbackConfiguration();
+                }
+            }
+
+            // Fallback configuration (your original setup)
+            function loadFallbackConfiguration() {
+                document.getElementById('loading').style.display = 'none';
+                
+                map.on('load', () => {
+                    // Add your original sources and layers here as fallback
+                    map.addSource('transformers', {
+                        type: 'vector',
+                        url: 'mapbox://fieldsense.4s90abve' 
+                    });
+
+                    map.addSource('meters', {
+                        type: 'vector',
+                        url: 'mapbox://fieldsense.4hey26iq'
+                    });
+
+                    map.addSource('secondary-oh', {
+                        type: 'vector',
+                        url: 'mapbox://fieldsense.c53vz8g4'
+                    });
+
+                    map.addSource('secondary-ug', {
+                        type: 'vector',
+                        url: 'mapbox://fieldsense.2hebp65r'
+                    });
+
+                    // Add your original layers
+                    map.addLayer({
+                        'id': 'ug-feeders',
+                        'type': 'line',
+                        'source': 'secondary-ug',
+                        'source-layer': 'secondary_UG-0ox1k5', 
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
+                    });
+
+                    map.addLayer({
+                        'id': 'oh-feeders',
+                        'type': 'line',
+                        'source': 'secondary-oh',
+                        'source-layer': 'secondary_OH-27459y', 
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#555555', 'line-width': 2 }
+                    });
+
+                    map.addLayer({
+                        'id': 'transformers-underground',
+                        'type': 'circle',
+                        'source': 'transformers',
+                        'source-layer': 'transformer_bank-3t7yaf', 
+                        'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
+                        'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                    });
+
+                    map.addLayer({
+                        'id': 'transformers-overhead',
+                        'type': 'circle',
+                        'source': 'transformers',
+                        'source-layer': 'transformer_bank-3t7yaf', 
+                        'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
+                        'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                    });
+                    
+                    map.addLayer({
+                        'id': 'electric-meters',
+                        'type': 'circle',
+                        'source': 'meters',
+                        'source-layer': 'electric_meters-5xjegj', 
+                        'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
+                    });
+
+                    setupInteractivity(['transformers-underground', 'transformers-overhead', 'electric-meters']);
+                });
+            }
+
+            // Setup popup interactivity
+            function setupInteractivity(interactiveLayers) {
                 const popup = new mapboxgl.Popup({
                     closeButton: false,
                     closeOnClick: false
@@ -138,7 +455,6 @@
                     while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                         coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                     }
-                    // Updated properties to match electric_meters.geojson
                     const popupHTML = `
                         <h4>Electric Meter</h4>
                         <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
@@ -147,17 +463,10 @@
                     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
                 };
 
-                // IMPORTANT: Replace these with the actual Layer IDs from your Mapbox Style.
-                // To find them, go to Mapbox Studio, select your style, and copy the ID for each layer.
-                const interactiveLayers = [
-                    'transformer_bank-3t7yaf', // <-- REPLACE with your actual transformer layer ID
-                    'electric_meters-5xjegj'  // <-- REPLACE with your actual meter layer ID
-                ];
-
+                // Add click listeners for each interactive layer
                 interactiveLayers.forEach(layerId => {
                     map.on('click', layerId, (e) => {
-                        // Check for a property that only transformers have to show the correct popup
-                        if (e.features[0].properties.hasOwnProperty('BANKKVA')) {
+                        if (layerId.includes('transformer')) {
                             createTransformerPopup(e);
                         } else {
                             createMeterPopup(e);
@@ -167,18 +476,24 @@
                     map.on('mouseenter', layerId, () => {
                         map.getCanvas().style.cursor = 'pointer';
                     });
+                    
                     map.on('mouseleave', layerId, () => {
                         map.getCanvas().style.cursor = '';
                         popup.remove();
                     });
                 });
-            });
+            }
+
+            // Start the dynamic configuration loading
+            loadMapWithDynamicConfig();
 
             // Add zoom and rotation controls to the map.
             map.addControl(new mapboxgl.NavigationControl());
+            
         } else {
             // If WebGL is not supported, hide the map and show the error message.
             document.getElementById('map').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
             document.getElementById('unsupported').style.display = 'flex';
         }
     });
