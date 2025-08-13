@@ -129,7 +129,7 @@
                 // --- ADD LAYERS ---
                 // Using the verified list of source layer names.
 
-                // 1. Underground Feeders Layer (Blue Dashed)
+                // 1. Underground Feeders Layer (Darker Blue Dashed)
                 map.addLayer({
                     'id': 'ug-feeders',
                     'type': 'line',
@@ -137,7 +137,7 @@
                     'source-layer': 'secondary_UG-0ox1k5',
                     'minzoom': 17,
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
-                    'paint': { 'line-color': '#0066FF', 'line-width': 2, 'line-dasharray': [2, 2] }
+                    'paint': { 'line-color': '#003366', 'line-width': 2, 'line-dasharray': [2, 2] }
                 });
 
                 // 2. Overhead Feeders Layer (Red Solid)
@@ -188,7 +188,7 @@
                     }
                 });
 
-                // 5. Electric Meters Layer (Smaller Blue Circles)
+                // 5. Electric Meters Layer (Dark Gray with White Stroke)
                 map.addLayer({
                     'id': 'electric-meters',
                     'type': 'circle',
@@ -196,10 +196,10 @@
                     'source-layer': 'electric_meters-5xjegj',
                     'minzoom': 18,
                     'paint': { 
-                        'circle-color': '#1E90FF', 
+                        'circle-color': '#555555', // Dark gray
                         'circle-radius': 4, // Smaller than transformers
                         'circle-stroke-width': 1, 
-                        'circle-stroke-color': '#ffffff' 
+                        'circle-stroke-color': '#ffffff' // White stroke
                     }
                 });
 
@@ -249,7 +249,7 @@
                         'text-ignore-placement': false
                     },
                     'paint': {
-                        'text-color': '#1E90FF',
+                        'text-color': '#555555', // Match meter color
                         'text-halo-color': '#ffffff',
                         'text-halo-width': 1
                     }
@@ -257,8 +257,9 @@
 
                 // --- INTERACTIVITY ---
                 const popup = new mapboxgl.Popup({
-                    closeButton: false,
-                    closeOnClick: false
+                    closeButton: true,  // Enable close button
+                    closeOnClick: false, // Don't close when clicking elsewhere on map
+                    closeOnMove: false   // Don't close when moving the map
                 });
 
                 const createTransformerPopup = (e) => {
@@ -313,9 +314,10 @@
                     map.on('mouseenter', layerId, () => {
                         map.getCanvas().style.cursor = 'pointer';
                     });
+                    
                     map.on('mouseleave', layerId, () => {
                         map.getCanvas().style.cursor = '';
-                        popup.remove();
+                        // Don't remove popup on mouseleave - let user interact with it
                     });
                 });
             });
