@@ -95,7 +95,7 @@
             // Initialize the map with a standard Mapbox style.
             const map = new mapboxgl.Map({
                 container: 'map', // The ID of the div element to hold the map
-                style: 'mapbox://styles/mapbox/light-v11', // Using a neutral base style
+                style: 'mapbox://styles/mapbox/satellite-v9', // Using satellite basemap
                 center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
                 zoom: 13, // Initial zoom level
                 failIfMajorPerformanceCaveat: false
@@ -151,7 +151,7 @@
                     'paint': { 'line-color': '#FF0000', 'line-width': 2 }
                 });
 
-                // 3. Underground Transformers Layer (Light Green Squares - just the square)
+                // 3. Underground Transformers Layer (Light Green Squares - same size as overhead)
                 map.addLayer({
                     'id': 'transformers-underground',
                     'type': 'symbol',
@@ -162,7 +162,7 @@
                     'layout': {
                         'text-field': '■', // Unicode square character
                         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 20, // Larger square
+                        'text-size': 24, // Larger to match overhead transformer circle size
                         'text-allow-overlap': true,
                         'text-ignore-placement': true
                     },
@@ -309,10 +309,9 @@
                     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
                 };
 
-                // Add click listeners for each interactive layer (including labels and square overlay)
+                // Add click listeners for each interactive layer
                 const interactiveLayers = [
                     'transformers-underground', 
-                    'transformers-underground-square',
                     'transformers-overhead', 
                     'electric-meters',
                     'transformer-labels',
