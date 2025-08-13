@@ -151,27 +151,34 @@
                     'paint': { 'line-color': '#555555', 'line-width': 2 }
                 });
 
-                // 3. Underground Transformers Layer (Green Circles)
+                // 3. Combined Transformer Layer with Custom Styling
                 map.addLayer({
-                    'id': 'transformers-underground',
-                    'type': 'circle',
+                    'id': 'transformers-styled',
+                    'type': 'circle', // The base type is circle, but color/shape will be conditional
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
-                    'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
-                });
-
-                // 4. Overhead Transformers Layer (Gray Circles)
-                map.addLayer({
-                    'id': 'transformers-overhead',
-                    'type': 'circle',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
-                    'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
+                    'source-layer': 'transformer_bank-3t7yaf',
+                    'paint': {
+                        // This "match" expression checks the "SUBTYPEC_1" property
+                        'circle-color': [
+                            'match',
+                            ['get', 'SUBTYPEC_1'],
+                            'Underground Transformer', '#2E8B57', // If it's Underground, color is SeaGreen
+                            'Overhead Transformer', '#808080',   // If it's Overhead, color is Gray
+                            '#000000' // A default fallback color (black)
+                        ],
+                        'circle-radius': [
+                            'match',
+                            ['get', 'SUBTYPEC_1'],
+                            'Underground Transformer', 8, // Underground transformers are slightly larger
+                            'Overhead Transformer', 6,    // Overhead transformers are smaller
+                            6 // Default radius
+                        ],
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff'
+                    }
                 });
                 
-                // 5. Electric Meters Layer
+                // 4. Electric Meters Layer
                 map.addLayer({
                     'id': 'electric-meters',
                     'type': 'circle',
@@ -220,7 +227,7 @@
                 };
 
                 // Add click listeners for each interactive layer
-                const interactiveLayers = ['transformers-underground', 'transformers-overhead', 'electric-meters'];
+                const interactiveLayers = ['transformers-styled', 'electric-meters'];
                 interactiveLayers.forEach(layerId => {
                     map.on('click', layerId, (e) => {
                         if (layerId.includes('transformer')) {
