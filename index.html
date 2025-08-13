@@ -124,20 +124,20 @@
 
                 map.addSource('secondary-ug', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.2hebp65r0'
+                    url: 'mapbox://fieldsense.c53vz8g4' // **UPDATED** Replaced the deleted tileset ID
                 });
 
 
                 // --- ADD LAYERS ---
-                // The 'source-layer' is the name of the layer within the tileset,
-                // typically the name of the original file (e.g., 'transformer_bank').
+                // IMPORTANT: The 'source-layer' MUST match the layer name in your Mapbox tileset.
+                // To find it, go to your Mapbox Studio, click the tileset, and copy the layer name.
 
                 // 1. Underground Feeders Layer
                 map.addLayer({
                     'id': 'ug-feeders',
                     'type': 'line',
                     'source': 'secondary-ug',
-                    'source-layer': 'secondary_UG-0ox1k5', // Using original source layer name, adjust if needed
+                    'source-layer': 'secondary_UG-0ox1k5', 
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
                 });
@@ -147,7 +147,7 @@
                     'id': 'oh-feeders',
                     'type': 'line',
                     'source': 'secondary-oh',
-                    'source-layer': 'secondary_OH-27459y', // Using original source layer name, adjust if needed
+                    'source-layer': 'secondary_OH-27459y', 
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#555555', 'line-width': 2 }
                 });
@@ -157,7 +157,7 @@
                     'id': 'transformers-underground',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', // Updated to match your new file name
+                    'source-layer': 'transformer_bank-3t7yaf', 
                     'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -167,7 +167,7 @@
                     'id': 'transformers-overhead',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', // Updated to match your new file name
+                    'source-layer': 'transformer_bank-3t7yaf', 
                     'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -177,7 +177,7 @@
                     'id': 'electric-meters',
                     'type': 'circle',
                     'source': 'meters',
-                    'source-layer': 'electric_meters-5xjegj', // Updated to match your new file name
+                    'source-layer': 'electric_meters-5xjegj', 
                     'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
                 });
 
