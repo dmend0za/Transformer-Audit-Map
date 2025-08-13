@@ -106,37 +106,38 @@
             // This function runs once the map's style has finished loading.
             map.on('load', () => {
                 // --- ADD TILESET SOURCES ---
+                // Updated with your new tileset IDs.
                 map.addSource('transformers', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.transformers-9cy3fu'
+                    url: 'mapbox://fieldsense.4s90abve' 
                 });
 
                 map.addSource('meters', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.electric_meters-ailda3'
+                    url: 'mapbox://fieldsense.4hey26iq'
                 });
 
                 map.addSource('secondary-oh', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.secondary_OH-bui3wt'
+                    url: 'mapbox://fieldsense.c53vz8g4'
                 });
 
                 map.addSource('secondary-ug', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.secondary_UG-63wuoq'
+                    url: 'mapbox://fieldsense.2hebp65r0'
                 });
 
 
                 // --- ADD LAYERS ---
-                // NOTE: The 'source-layer' must be the name of the layer within the tileset.
-                // This is often the original filename without the extension.
+                // The 'source-layer' is the name of the layer within the tileset,
+                // typically the name of the original file (e.g., 'transformer_bank').
 
                 // 1. Underground Feeders Layer
                 map.addLayer({
                     'id': 'ug-feeders',
                     'type': 'line',
                     'source': 'secondary-ug',
-                    'source-layer': 'secondary_UG', // Corrected source layer name
+                    'source-layer': 'secondary_UG-63wuoq', // Using original source layer name, adjust if needed
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
                 });
@@ -146,7 +147,7 @@
                     'id': 'oh-feeders',
                     'type': 'line',
                     'source': 'secondary-oh',
-                    'source-layer': 'secondary_OH', // Corrected source layer name
+                    'source-layer': 'secondary_OH-bui3wt', // Using original source layer name, adjust if needed
                     'layout': { 'line-join': 'round', 'line-cap': 'round' },
                     'paint': { 'line-color': '#555555', 'line-width': 2 }
                 });
@@ -156,7 +157,7 @@
                     'id': 'transformers-underground',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformers', // Corrected source layer name
+                    'source-layer': 'transformer_bank', // Updated to match your new file name
                     'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -166,7 +167,7 @@
                     'id': 'transformers-overhead',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformers', // Corrected source layer name
+                    'source-layer': 'transformer_bank', // Updated to match your new file name
                     'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                     'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
                 });
@@ -176,7 +177,7 @@
                     'id': 'electric-meters',
                     'type': 'circle',
                     'source': 'meters',
-                    'source-layer': 'electric_meters', // Corrected source layer name
+                    'source-layer': 'electric_meters', // Updated to match your new file name
                     'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
                 });
 
@@ -195,8 +196,8 @@
                     }
                     const popupHTML = `
                         <h4>Transformer Details</h4>
-                        <p><strong>ID:</strong> ${properties.FID || 'N/A'}</p>
-                        <p><strong>Feeder:</strong> ${properties.FEEDERIDI || 'N/A'}</p>
+                        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+                        <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
                         <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
                         <p><strong>Type:</strong> ${properties.SUBTYPEC_1 || 'N/A'}</p>
                         <p><strong>Comments:</strong> ${properties.COMMENTS_C || 'N/A'}</p>
@@ -211,10 +212,11 @@
                     while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                         coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                     }
+                    // Updated properties to match electric_meters.geojson
                     const popupHTML = `
                         <h4>Electric Meter</h4>
-                        <p><strong>Meter Number:</strong> ${properties.METER_N || 'N/A'}</p>
-                        <p><strong>Status:</strong> ${properties.STATUS || 'N/A'}</p>
+                        <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
+                        <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
                     `;
                     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
                 };
