@@ -93,10 +93,10 @@
             // --- MAPBOX INITIALIZATION ---
             mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-            // Initialize the map with a standard Mapbox style.
+            // Initialize the map with your custom Mapbox style.
             const map = new mapboxgl.Map({
                 container: 'map', // The ID of the div element to hold the map
-                style: 'mapbox://styles/mapbox/light-v11', // Using a neutral base style
+                style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // **UPDATED** Using your custom style
                 center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
                 zoom: 11.5, // Initial zoom level
                 failIfMajorPerformanceCaveat: false
@@ -105,82 +105,8 @@
             // --- MAP LOAD EVENT ---
             // This function runs once the map's style has finished loading.
             map.on('load', () => {
-                // --- ADD TILESET SOURCES ---
-                // Updated with your new tileset IDs.
-                map.addSource('transformers', {
-                    type: 'vector',
-                    url: 'mapbox://fieldsense.4s90abve' 
-                });
-
-                map.addSource('meters', {
-                    type: 'vector',
-                    url: 'mapbox://fieldsense.4hey26iq'
-                });
-
-                map.addSource('secondary-oh', {
-                    type: 'vector',
-                    url: 'mapbox://fieldsense.c53vz8g4'
-                });
-
-                map.addSource('secondary-ug', {
-                    type: 'vector',
-                    url: 'mapbox://fieldsense.2hebp65r' // **CORRECTED** Pointing to the correct UG tileset
-                });
-
-
-                // --- ADD LAYERS ---
-                // IMPORTANT: The 'source-layer' MUST match the layer name in your Mapbox tileset.
-                // To find it, go to your Mapbox Studio, click the tileset, and copy the layer name.
-
-                // 1. Underground Feeders Layer
-                map.addLayer({
-                    'id': 'ug-feeders',
-                    'type': 'line',
-                    'source': 'secondary-ug',
-                    'source-layer': 'secondary_UG-0ox1k5', 
-                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
-                    'paint': { 'line-color': '#ff8c00', 'line-width': 2, 'line-dasharray': [2, 2] }
-                });
-
-                // 2. Overhead Feeders Layer
-                map.addLayer({
-                    'id': 'oh-feeders',
-                    'type': 'line',
-                    'source': 'secondary-oh',
-                    'source-layer': 'secondary_OH-27459y', 
-                    'layout': { 'line-join': 'round', 'line-cap': 'round' },
-                    'paint': { 'line-color': '#555555', 'line-width': 2 }
-                });
-
-                // 3. Underground Transformers Layer (Green Circles)
-                map.addLayer({
-                    'id': 'transformers-underground',
-                    'type': 'circle',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
-                    'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'paint': { 'circle-color': '#2E8B57', 'circle-radius': 7, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
-                });
-
-                // 4. Overhead Transformers Layer (Gray Circles)
-                map.addLayer({
-                    'id': 'transformers-overhead',
-                    'type': 'circle',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
-                    'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'paint': { 'circle-color': '#808080', 'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#ffffff' }
-                });
-                
-                // 5. Electric Meters Layer
-                map.addLayer({
-                    'id': 'electric-meters',
-                    'type': 'circle',
-                    'source': 'meters',
-                    'source-layer': 'electric_meters-5xjegj', 
-                    'paint': { 'circle-color': '#1E90FF', 'circle-radius': 5, 'circle-stroke-width': 1, 'circle-stroke-color': '#ffffff' }
-                });
-
+                // --- LAYERS AND SOURCES ARE NOW HANDLED BY YOUR MAPBOX STYLE ---
+                // No need to add sources or layers here anymore.
 
                 // --- INTERACTIVITY ---
                 const popup = new mapboxgl.Popup({
@@ -221,11 +147,16 @@
                     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
                 };
 
-                // Add click listeners for each interactive layer
-                const interactiveLayers = ['transformers-underground', 'transformers-overhead', 'electric-meters'];
+                // IMPORTANT: Replace these with the actual Layer IDs from your Mapbox Style.
+                const interactiveLayers = [
+                    'transformer_bank-3t7yaf', // Example: The layer ID for your transformers
+                    'electric_meters-5xjegj'  // Example: The layer ID for your meters
+                ];
+
                 interactiveLayers.forEach(layerId => {
                     map.on('click', layerId, (e) => {
-                        if (layerId.includes('transformer')) {
+                        // Use a property to distinguish between transformers and meters if needed
+                        if (e.features[0].properties.hasOwnProperty('BANKKVA')) {
                             createTransformerPopup(e);
                         } else {
                             createMeterPopup(e);
