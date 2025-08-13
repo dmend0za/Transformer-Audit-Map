@@ -3,13 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transformer Audit Map</title>
-    <!-- Mapbox GL JS CSS -->
+    <title>Transformer Audit Map - Fixed</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <!-- Mapbox GL JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
-        /* Basic styling for the body and map container */
         body {
             margin: 0;
             padding: 0;
@@ -37,7 +34,6 @@
             flex-direction: column;
         }
 
-        /* Styling for the popups */
         .mapboxgl-popup {
             max-width: 250px;
             font-size: 14px;
@@ -82,33 +78,126 @@
     <p>Sorry, your browser or environment does not support WebGL, which is required to view this map.</p>
 </div>
 
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Hide the unsupported message by default
         document.getElementById('unsupported').style.display = 'none';
 
-        // Check if Mapbox GL is supported in the current browser/environment.
         if (mapboxgl.supported()) {
-            // --- MAPBOX INITIALIZATION ---
             mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
 
-            // Initialize the map with your custom Mapbox style.
+            // Fixed style object that works without MapBox Studio
+            const fixedStyle = {
+                "version": 8,
+                "name": "Fixed Transformer Audit Map",
+                "sources": {
+                    "transformers": {
+                        "type": "vector",
+                        "url": "mapbox://fieldsense.4s90abve"
+                    },
+                    "meters": {
+                        "type": "vector", 
+                        "url": "mapbox://fieldsense.4hey26iq"
+                    },
+                    "secondary-oh": {
+                        "type": "vector",
+                        "url": "mapbox://fieldsense.c53vz8g4"
+                    },
+                    "secondary-ug": {
+                        "type": "vector",
+                        "url": "mapbox://fieldsense.2hebp65r"
+                    }
+                },
+                "layers": [
+                    {
+                        "id": "background",
+                        "type": "background",
+                        "paint": {
+                            "background-color": "#f8f8f8"
+                        }
+                    },
+                    {
+                        "id": "ug-feeders",
+                        "type": "line",
+                        "source": "secondary-ug",
+                        "source-layer": "secondary_UG-0ox1k5",
+                        "layout": {
+                            "line-join": "round",
+                            "line-cap": "round"
+                        },
+                        "paint": {
+                            "line-color": "#ff8c00",
+                            "line-width": 2,
+                            "line-dasharray": [2, 2]
+                        }
+                    },
+                    {
+                        "id": "oh-feeders",
+                        "type": "line",
+                        "source": "secondary-oh",
+                        "source-layer": "secondary_OH-27459y",
+                        "layout": {
+                            "line-join": "round",
+                            "line-cap": "round"
+                        },
+                        "paint": {
+                            "line-color": "#555555",
+                            "line-width": 2
+                        }
+                    },
+                    {
+                        "id": "transformers-underground",
+                        "type": "circle",
+                        "source": "transformers",
+                        "source-layer": "transformer_bank-3t7yaf",
+                        "filter": ["==", "SUBTYPEC_1", "Underground Transformer"],
+                        "paint": {
+                            "circle-color": "#2E8B57",
+                            "circle-radius": 7,
+                            "circle-stroke-width": 1.5,
+                            "circle-stroke-color": "#ffffff"
+                        }
+                    },
+                    {
+                        "id": "transformers-overhead",
+                        "type": "circle",
+                        "source": "transformers",
+                        "source-layer": "transformer_bank-3t7yaf",
+                        "filter": ["!=", "SUBTYPEC_1", "Underground Transformer"],
+                        "paint": {
+                            "circle-color": "#808080",
+                            "circle-radius": 6,
+                            "circle-stroke-width": 1.5,
+                            "circle-stroke-color": "#ffffff"
+                        }
+                    },
+                    {
+                        "id": "electric-meters",
+                        "type": "circle",
+                        "source": "meters",
+                        "source-layer": "electric_meters-5xjegj",
+                        "paint": {
+                            "circle-color": "#1E90FF",
+                            "circle-radius": 5,
+                            "circle-stroke-width": 1,
+                            "circle-stroke-color": "#ffffff"
+                        }
+                    }
+                ]
+            };
+
+            // Initialize the map with the fixed style object
             const map = new mapboxgl.Map({
-                container: 'map', // The ID of the div element to hold the map
-                style: 'mapbox://styles/fieldsense/cmdzysazb00hd01s9cm2v4td1', // **CORRECTED** Using your custom style from Mapbox Studio
-                center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
-                zoom: 11.5, // Initial zoom level
+                container: 'map',
+                style: fixedStyle,  // Using the fixed style directly
+                center: [-77.9153, 35.7218],
+                zoom: 11.5,
                 failIfMajorPerformanceCaveat: false
             });
 
-            // --- MAP LOAD EVENT ---
-            // This function runs once the map's style has finished loading.
             map.on('load', () => {
-                // --- LAYERS AND SOURCES ARE NOW HANDLED BY YOUR MAPBOX STYLE ---
-                // No need to add sources or layers here anymore.
-
-                // --- INTERACTIVITY ---
+                console.log('✅ Map loaded successfully with fixed style!');
+                
+                // Setup interactivity
                 const popup = new mapboxgl.Popup({
                     closeButton: false,
                     closeOnClick: false
@@ -138,7 +227,6 @@
                     while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                         coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                     }
-                    // Updated properties to match electric_meters.geojson
                     const popupHTML = `
                         <h4>Electric Meter</h4>
                         <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
@@ -147,16 +235,15 @@
                     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
                 };
 
-                // IMPORTANT: Replace these with the actual Layer IDs from your Mapbox Style.
-                // To find them, go to Mapbox Studio, select your style, and copy the ID for each layer.
+                // Interactive layers from the fixed style
                 const interactiveLayers = [
-                    'transformer_bank-3t7yaf', // <-- REPLACE with your actual transformer layer ID
-                    'electric_meters-5xjegj'  // <-- REPLACE with your actual meter layer ID
+                    'transformers-underground',
+                    'transformers-overhead', 
+                    'electric-meters'
                 ];
 
                 interactiveLayers.forEach(layerId => {
                     map.on('click', layerId, (e) => {
-                        // Check for a property that only transformers have to show the correct popup
                         if (e.features[0].properties.hasOwnProperty('BANKKVA')) {
                             createTransformerPopup(e);
                         } else {
@@ -167,17 +254,25 @@
                     map.on('mouseenter', layerId, () => {
                         map.getCanvas().style.cursor = 'pointer';
                     });
+                    
                     map.on('mouseleave', layerId, () => {
                         map.getCanvas().style.cursor = '';
                         popup.remove();
                     });
                 });
+
+                console.log(`Interactivity setup for layers: ${interactiveLayers.join(', ')}`);
             });
 
-            // Add zoom and rotation controls to the map.
+            map.on('error', (e) => {
+                console.error('Map error:', e.error);
+                alert(`Map loading error: ${e.error.message}`);
+            });
+
+            // Add navigation controls
             map.addControl(new mapboxgl.NavigationControl());
+
         } else {
-            // If WebGL is not supported, hide the map and show the error message.
             document.getElementById('map').style.display = 'none';
             document.getElementById('unsupported').style.display = 'flex';
         }
