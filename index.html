@@ -312,7 +312,7 @@
                 // Using the verified list of Tileset IDs.
                 map.addSource('transformers', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.4s90abve' 
+                    url: 'mapbox://fieldsense.csvoupg7' 
                 });
 
                 map.addSource('meters', {
@@ -360,7 +360,7 @@
                     'id': 'transformers-underground',
                     'type': 'symbol',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
+                    'source-layer': 'transformer_bank-csvoupg7', 
                     'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                     'minzoom': 16.5,
                     'layout': {
@@ -382,7 +382,7 @@
                     'id': 'transformers-overhead',
                     'type': 'circle',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf', 
+                    'source-layer': 'transformer_bank-csvoupg7', 
                     'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                     'minzoom': 16.5,
                     'paint': { 
@@ -413,7 +413,7 @@
                     'id': 'transformer-labels',
                     'type': 'symbol',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-3t7yaf',
+                    'source-layer': 'transformer_bank-csvoupg7',
                     'minzoom': 18,
                     'layout': {
                         'text-field': [
