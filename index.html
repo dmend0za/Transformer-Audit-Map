@@ -355,44 +355,45 @@
                     'paint': { 'line-color': '#FF0000', 'line-width': 2 }
                 });
 
-                // 3. Underground Transformers Layer (Light Green Squares - same size as overhead)
-                map.addLayer({
-                    'id': 'transformers-underground',
-                    'type': 'symbol',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-8z5c3m', 
-                    'filter': ['==', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'minzoom': 16.5,
-                    'layout': {
-                        'text-field': '■', // Unicode square character
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 24, // Larger to match overhead transformer circle size
-                        'text-allow-overlap': true,
-                        'text-ignore-placement': true
-                    },
-                    'paint': {
-                        'text-color': '#4CAF50', // Lighter green
-                        'text-halo-color': '#000000', // Black outline
-                        'text-halo-width': 1.5
-                    }
-                });
+              // 3. Underground Transformers Layer (Light Green Squares)
+map.addLayer({
+    'id': 'transformers-underground',
+    'type': 'symbol',
+    'source': 'transformers',
+    'source-layer': 'transformer_bank-8z5c3m', 
+    // ✅ CORRECTED FILTER PROPERTY AND VALUE
+    'filter': ['==', 'TRANSFORME', 'Underground'], 
+    'minzoom': 16.5,
+    'layout': {
+        'text-field': '■', // Unicode square character
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-size': 24, 
+        'text-allow-overlap': true,
+        'text-ignore-placement': true
+    },
+    'paint': {
+        'text-color': '#4CAF50', 
+        'text-halo-color': '#000000',
+        'text-halo-width': 1.5
+    }
+});
 
-                // 4. Overhead Transformers Layer (Light Gray Circles)
-                map.addLayer({
-                    'id': 'transformers-overhead',
-                    'type': 'circle',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-8z5c3m', 
-                    'filter': ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-                    'minzoom': 16.5,
-                    'paint': { 
-                        'circle-color': 'hsl(123, 7%, 85%)',
-                        'circle-radius': 8,
-                        'circle-stroke-width': 2, 
-                        'circle-stroke-color': '#000000'
-                    }
-                });
-
+// 4. Overhead Transformers Layer (Light Gray Circles)
+map.addLayer({
+    'id': 'transformers-overhead',
+    'type': 'circle',
+    'source': 'transformers',
+    'source-layer': 'transformer_bank-8z5c3m', 
+    // ✅ CORRECTED FILTER PROPERTY AND VALUE
+    'filter': ['!=', 'TRANSFORME', 'Underground'],
+    'minzoom': 16.5,
+    'paint': { 
+        'circle-color': 'hsl(123, 7%, 85%)',
+        'circle-radius': 8,
+        'circle-stroke-width': 2, 
+        'circle-stroke-color': '#000000'
+    }
+});
                 // 5. Electric Meters Layer (Bigger Dark Gray with White Stroke)
                 map.addLayer({
                     'id': 'electric-meters',
@@ -481,23 +482,25 @@
                     closeOnMove: false   // Don't close when moving the map
                 });
 
-                const createTransformerPopup = (e) => {
-                    const properties = e.features[0].properties;
-                    const coordinates = e.features[0].geometry.coordinates.slice();
-                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-                    }
-                    const popupHTML = `
-                        <h4>Transformer Details</h4>
-                        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-                        <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
-                        <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
-                        <p><strong>Type:</strong> ${properties.SUBTYPEC_1 || 'N/A'}</p>
-                        <p><strong>Comments:</strong> ${properties.COMMENTS_C || 'N/A'}</p>
-                        <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
-                    `;
-                    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-                };
+             const createTransformerPopup = (e) => {
+    const properties = e.features[0].properties;
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
+
+    // ✅ CORRECTED PROPERTY NAMES
+    const popupHTML = `
+        <h4>Transformer Details</h4>
+        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+        <p><strong>Feeder:</strong> ${properties.FEEDERID_1 || 'N/A'}</p> 
+        <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
+        <p><strong>Type:</strong> ${properties.TRANSFORME || 'N/A'}</p>
+        <p><strong>Comments:</strong> ${properties.TMPCOMME_1 || 'N/A'}</p>
+        <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
+    `;
+    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+};
                 
                 const createMeterPopup = (e) => {
                     const properties = e.features[0].properties;
