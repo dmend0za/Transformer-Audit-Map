@@ -73,139 +73,22 @@
             background-color: #555555;
             border: 1px solid #fff;
             border-radius: 50%;
-        }
-
-        #unsupported {
-            display: none;
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #f8f8f8;
-            color: #333;
-            text-align: center;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            font-size: 18px;
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    
-    <div id="legend">
-        <h3>Transformer Audit Map</h3>
-        <div class="legend-item">
-            <span><div class="legend-symbol underground"></div>Underground</span>
-            <span id="underground-count">0</span>
-        </div>
-        <div class="legend-item">
-            <span><div class="legend-symbol overhead"></div>Overhead</span>
-            <span id="overhead-count">0</span>
-        </div>
-        <div class="legend-item">
-            <span><div class="legend-symbol meter"></div>Meters</span>
-            <span id="meter-count">0</span>
-        </div>
-        <hr style="margin: 12px 0; border: none; border-top: 1px solid #ccc;">
-        <div class="legend-item">
-            <span><strong>Total Transformers:</strong></span>
-            <span id="total-count">0</span>
-        </div>
-        <div class="legend-item">
-            <span><strong>Completed:</strong></span>
-            <span id="completed-count">0</span>
-        </div>
-        <div class="legend-item">
-            <span><strong>Pending:</strong></span>
-            <span id="pending-count">0</span>
-        </div>
-    </div>
-
-    <div id="unsupported">
-        <h2>WebGL Not Supported</h2>
-        <p>Your browser does not support WebGL, which is required for this map.</p>
-        <p>Please try using a modern browser like Chrome, Firefox, Safari, or Edge.</p>
-    </div>
-
-    <script>
-        // Check if WebGL is supported
-        function isWebGLSupported() {
-            try {
-                const canvas = document.createElement('canvas');
-                return !!(window.WebGLRenderingContext && canvas.getContext('webgl'));
-            } catch (e) {
-                return false;
-            }
-        }
-
-        // Only initialize the map if WebGL is supported
-        if (isWebGLSupported()) {
-            // --- MAPBOX ACCESS TOKEN ---
-            mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbTFrbWFub3MwMDE2MmtxdTZ4NnNya3c4In0.qvTzOcGzMaNHJT0xqxtShQ';
-
-            // --- INITIALIZE MAP ---
-            const map = new mapboxgl.Map({
-                container: 'map',
-                style: 'mapbox://styles/mapbox/satellite-streets-v12',
-                center: [-78.3, 35.5],
-                zoom: 14
-            });
-
-            // --- AUDIT STATUS TRACKING ---
-            let auditStatus = {
-                underground: 0,
-                overhead: 0,
-                total: 0,
-                completed: 0,
-                pending: 0,
-                meters: 0,
-                completedTransformers: new Set()
-            };
-
-            function updateLegendCounts() {
-                document.getElementById('underground-count').textContent = auditStatus.underground;
-                document.getElementById('overhead-count').textContent = auditStatus.overhead;
-                document.getElementById('meter-count').textContent = auditStatus.meters;
-                document.getElementById('total-count').textContent = auditStatus.total;
-                document.getElementById('completed-count').textContent = auditStatus.completed;
-                document.getElementById('pending-count').textContent = auditStatus.pending;
-            }
-
-            map.on('load', function() {
-                // Count features when data loads
-                map.on('data', (e) => {
-                    if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-                        // Count underground transformers
-                        const undergroundFeatures = map.querySourceFeatures('transformers', {
-                            sourceLayer: 'transformer_bank-2wyyho',
-                            filter: ['==', 'TRANSFORMER', 'Underground']
-                        });
-                        auditStatus.underground = undergroundFeatures.length;
+                            
+                            auditStatus.total = auditStatus.underground + auditStatus.overhead;
+                            auditStatus.pending = auditStatus.total - auditStatus.completed;
+                            
+                            updateLegendCounts();
+                        }
                         
-                        // Count overhead transformers  
-                        const overheadFeatures = map.querySourceFeatures('transformers', {
-                            sourceLayer: 'transformer_bank-2wyyho',
-                            filter: ['!=', 'TRANSFORMER', 'Underground']
-                        });
-                        auditStatus.overhead = overheadFeatures.length;
-                        
-                        auditStatus.total = auditStatus.underground + auditStatus.overhead;
-                        auditStatus.pending = auditStatus.total - auditStatus.completed;
-                        
-                        updateLegendCounts();
-                    }
-                    
-                    if (e.sourceId === 'meters' && e.isSourceLoaded) {
-                        const meterFeatures = map.querySourceFeatures('meters', {
-                            sourceLayer: 'electric_meters-5xjegj'
-                        });
-                        auditStatus.meters = meterFeatures.length;
-                        updateLegendCounts();
-                    }
-                });
+                        if (e.sourceId === 'meters' && e.isSourceLoaded) {
+                            const meterFeatures = map.querySourceFeatures('meters', {
+                                sourceLayer: 'electric_meters-5xjegj'
+                            });
+                            auditStatus.meters = meterFeatures.length;
+                            updateLegendCounts();
+                        }
+                    });
+                }
 
                 // Function to check audit status from Google Sheets (placeholder for your integration)
                 async function checkAuditStatus() {
@@ -239,13 +122,13 @@
                     // Apply filters to hide completed transformers
                     map.setFilter('transformers-underground', [
                         'all',
-                        ['==', 'TRANSFORMER', 'Underground'],
+                        ['==', 'SUBTYPEC_1', 'Underground Transformer'],
                         incompleteFilter
                     ]);
                     
                     map.setFilter('transformers-overhead', [
                         'all',
-                        ['!=', 'TRANSFORMER', 'Underground'],
+                        ['!=', 'SUBTYPEC_1', 'Underground Transformer'],
                         incompleteFilter
                     ]);
                     
@@ -257,7 +140,6 @@
                 // Expose functions globally for Google Sheets integration
                 window.updateAuditStatus = updateCompletedTransformers;
                 window.refreshAuditData = checkAuditStatus;
-
                 // --- ADD TILESET SOURCES ---
                 // Using the verified list of Tileset IDs.
                 map.addSource('transformers', {
@@ -294,7 +176,7 @@
                     'paint': { 'line-color': '#003366', 'line-width': 2, 'line-dasharray': [2, 2] }
                 });
 
-                // 2. Overhead Feeders Layer (Red Solid)
+                // 2. Overhead Feeders Layer (Red Solid) y
                 map.addLayer({
                     'id': 'oh-feeders',
                     'type': 'line',
@@ -305,44 +187,45 @@
                     'paint': { 'line-color': '#FF0000', 'line-width': 2 }
                 });
 
-                // 3. Underground Transformers Layer (Bigger Light Green Squares)
-                map.addLayer({
-                    'id': 'transformers-underground',
-                    'type': 'symbol',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-2wyyho', 
-                    'filter': ['==', 'TRANSFORMER', 'Underground'], 
-                    'minzoom': 16.5,
-                    'layout': {
-                        'text-field': '■', // Unicode square character
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 32, // Increased from 24 to 32
-                        'text-allow-overlap': true,
-                        'text-ignore-placement': true
-                    },
-                    'paint': {
-                        'text-color': '#4CAF50', 
-                        'text-halo-color': '#000000',
-                        'text-halo-width': 1.5
-                    }
-                });
+              // 3. Underground Transformers Layer (Light Green Squares)
+map.addLayer({
+    'id': 'transformers-underground',
+    'type': 'symbol',
+    'source': 'transformers',
+    'source-layer': 'transformer_bank-2wyyho', 
+    // ✅ CORRECTED FILTER PROPERTY AND VALUE
+    'filter': ['==', 'TRANSFORMER', 'Underground'], 
+    'minzoom': 16.5,
+    'layout': {
+        'text-field': '■', // Unicode square character
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-size': 24, 
+        'text-allow-overlap': true,
+        'text-ignore-placement': true
+    },
+    'paint': {
+        'text-color': '#4CAF50', 
+        'text-halo-color': '#000000',
+        'text-halo-width': 1.5
+    }
+});
 
-                // 4. Overhead Transformers Layer (Light Gray Circles)
-                map.addLayer({
-                    'id': 'transformers-overhead',
-                    'type': 'circle',
-                    'source': 'transformers',
-                    'source-layer': 'transformer_bank-2wyyho', 
-                    'filter': ['!=', 'TRANSFORMER', 'Underground'],
-                    'minzoom': 16.5,
-                    'paint': { 
-                        'circle-color': 'hsl(123, 7%, 85%)',
-                        'circle-radius': 8,
-                        'circle-stroke-width': 2, 
-                        'circle-stroke-color': '#000000'
-                    }
-                });
-
+// 4. Overhead Transformers Layer (Light Gray Circles)
+map.addLayer({
+    'id': 'transformers-overhead',
+    'type': 'circle',
+    'source': 'transformers',
+    'source-layer': 'transformer_bank-2wyyho', 
+    // ✅ CORRECTED FILTER PROPERTY AND VALUE
+    'filter': ['!=', 'TRANSFORMER', 'Underground'],
+    'minzoom': 16.5,
+    'paint': { 
+        'circle-color': 'hsl(123, 7%, 85%)',
+        'circle-radius': 8,
+        'circle-stroke-width': 2, 
+        'circle-stroke-color': '#000000'
+    }
+});
                 // 5. Electric Meters Layer (Bigger Dark Gray with White Stroke)
                 map.addLayer({
                     'id': 'electric-meters',
@@ -358,7 +241,7 @@
                     }
                 });
 
-                // 6. Transformer Labels (appear above transformers with larger dynamic sizing)
+                // 6. Transformer Labels (appear at high zoom with larger dynamic sizing)
                 map.addLayer({
                     'id': 'transformer-labels',
                     'type': 'symbol',
@@ -378,12 +261,12 @@
                             'interpolate',
                             ['linear'],
                             ['zoom'],
-                            18, 14,  // At zoom 18, text size is 14
-                            20, 18,  // At zoom 20, text size is 18
-                            22, 24   // At zoom 22, text size is 24
+                            18, 14,  // At zoom 18, text size is 14 (was 9)
+                            20, 18,  // At zoom 20, text size is 18 (was 12)
+                            22, 24   // At zoom 22, text size is 24 (was 16)
                         ],
-                        'text-offset': [0, -2.5], // Changed from positive to negative to show above
-                        'text-anchor': 'bottom',  // Changed from 'top' to 'bottom' to anchor at bottom of text
+                        'text-offset': [0, 2.5],
+                        'text-anchor': 'top',
                         'text-allow-overlap': false,
                         'text-ignore-placement': false
                     },
@@ -394,7 +277,7 @@
                     }
                 });
 
-                // 7. Electric Meter Labels (appear above meters with larger dynamic sizing)
+                // 7. Electric Meter Labels (appear at high zoom with larger dynamic sizing)
                 map.addLayer({
                     'id': 'meter-labels',
                     'type': 'symbol',
@@ -408,12 +291,12 @@
                             'interpolate',
                             ['linear'],
                             ['zoom'],
-                            19, 12,  // At zoom 19, text size is 12
-                            21, 16,  // At zoom 21, text size is 16
-                            22, 20   // At zoom 22, text size is 20
+                            19, 12,  // At zoom 19, text size is 12 (was 8)
+                            21, 16,  // At zoom 21, text size is 16 (was 11)
+                            22, 20   // At zoom 22, text size is 20 (was 14)
                         ],
-                        'text-offset': [0, -2], // Changed from positive to negative to show above
-                        'text-anchor': 'bottom', // Changed from 'top' to 'bottom' to anchor at bottom of text
+                        'text-offset': [0, 2],
+                        'text-anchor': 'top',
                         'text-allow-overlap': false,
                         'text-ignore-placement': false
                     },
@@ -431,27 +314,25 @@
                     closeOnMove: false   // Don't close when moving the map
                 });
 
-                const createTransformerPopup = (e) => {
-                    const properties = e.features[0].properties;
-                    const coordinates = e.features[0].geometry.coordinates.slice();
-                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-                    }
+             const createTransformerPopup = (e) => {
+    const properties = e.features[0].properties;
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
 
-                    // Fixed to use the correct property name for the link
-                    const auditLink = properties.Link || properties.link || properties.LINK || '#';
-                    
-                    const popupHTML = `
-                        <h4>Transformer Details</h4>
-                        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-                        <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
-                        <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-                        <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p> 
-                        <p><strong>COLOR:</strong> ${properties.COLOR || 'N/A'}</p>
-                        ${auditLink !== '#' ? `<a href="${auditLink}" target="_blank" style="background: #007cba; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 10px;">Open Audit Form &rarr;</a>` : '<p><em>No audit form available</em></p>'}
-                    `;
-                    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-                };
+    // ✅ CORRECTED PROPERTY NAMES
+    const popupHTML = `
+        <h4>Transformer Details</h4>
+        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+        <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
+        <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+        <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p> 
+        <p><strong>COLOR:</strong> ${properties.COLOR || 'N/A'}</p>
+        <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
+    `;
+    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+};
                 
                 const createMeterPopup = (e) => {
                     const properties = e.features[0].properties;
@@ -475,7 +356,6 @@
                     'transformer-labels',
                     'meter-labels'
                 ];
-                
                 interactiveLayers.forEach(layerId => {
                     map.on('click', layerId, (e) => {
                         if (layerId.includes('transformer')) {
@@ -503,6 +383,8 @@
             document.getElementById('map').style.display = 'none';
             document.getElementById('unsupported').style.display = 'flex';
         }
-    </script>
+    });
+</script>
+
 </body>
 </html>
