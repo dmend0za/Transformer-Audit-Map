@@ -231,7 +231,7 @@
                     map.on('sourcedata', (e) => {
                         if (e.sourceId === 'transformers' && e.isSourceLoaded) {
                             const features = map.querySourceFeatures('transformers', {
-                                sourceLayer: 'transformer_bank-74hdnb'
+                                sourceLayer: 'transformer_bank-2wyyho'
                             });
                             
                             auditStatus.underground = features.filter(f => 
@@ -312,7 +312,7 @@
                 // Using the verified list of Tileset IDs.
                 map.addSource('transformers', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.aw2znflh' 
+                    url: 'mapbox://fieldsense.4w34kdko' 
                 });
 
                 map.addSource('meters', {
@@ -360,7 +360,7 @@ map.addLayer({
     'id': 'transformers-underground',
     'type': 'symbol',
     'source': 'transformers',
-    'source-layer': 'transformer_bank-74hdnb', 
+    'source-layer': 'transformer_bank-2wyyho', 
     // ✅ CORRECTED FILTER PROPERTY AND VALUE
     'filter': ['==', 'TRANSFORMER', 'Underground'], 
     'minzoom': 16.5,
@@ -383,7 +383,7 @@ map.addLayer({
     'id': 'transformers-overhead',
     'type': 'circle',
     'source': 'transformers',
-    'source-layer': 'transformer_bank-74hdnb', 
+    'source-layer': 'transformer_bank-2wyyho', 
     // ✅ CORRECTED FILTER PROPERTY AND VALUE
     'filter': ['!=', 'TRANSFORMER', 'Underground'],
     'minzoom': 16.5,
@@ -414,7 +414,7 @@ map.addLayer({
                     'id': 'transformer-labels',
                     'type': 'symbol',
                     'source': 'transformers',
-                    'source-layer': 'transformer_bank-8z5c3m',
+                    'source-layer': 'transformer_bank-2wyyho',
                     'minzoom': 18,
                     'layout': {
                         'text-field': [
@@ -495,7 +495,7 @@ map.addLayer({
         <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
         <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
         <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-        <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
+        <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p> // should we add "STYLE"??
         <p><strong>COLOR:</strong> ${properties.COLOR || 'N/A'}</p>
         <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
     `;
