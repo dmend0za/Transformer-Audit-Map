@@ -171,7 +171,7 @@ if (!mapboxgl.supported()) {
 document.getElementById('map').style.display = 'none';
 document.getElementById('unsupported').style.display = 'flex';
 } else {
-// Initialize the map
+// Initialize the map with your original token
 mapboxgl.accessToken = 'pk.eyJ1IjoiYm1jbWFzdGVyIiwiYSI6ImNsenlheG03ZzBydjAyaXM5cjdtamhscDMifQ.D2dGW_LOLhc4qKa7qhO6Dg';
 
 const map = new mapboxgl.Map({
@@ -189,18 +189,6 @@ closeOnClick: false
 
 // Load the data and set up the layers when the map loads
 map.on('load', function() {
-// First, add a custom square image for underground transformers
-const canvas = document.createElement('canvas');
-canvas.width = 20;
-canvas.height = 20;
-const ctx = canvas.getContext('2d');
-ctx.fillStyle = '#4CAF50';
-ctx.fillRect(0, 0, 20, 20);
-ctx.strokeStyle = '#000000';
-ctx.lineWidth = 2;
-ctx.strokeRect(0, 0, 20, 20);
-map.addImage('underground-square', canvas);
-
 // Load data sources
 map.addSource('transformers', {
 type: 'geojson',
@@ -212,16 +200,20 @@ type: 'geojson',
 data: 'https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Electric_Meters/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson'
 });
 
-// Add layers for underground transformers (green squares, made bigger)
+// Add layers for underground transformers (green squares)
 map.addLayer({
 id: 'transformers-underground',
-type: 'symbol',
+type: 'circle',
 source: 'transformers',
 filter: ['==', ['get', 'TRANSFORMER'], 'UNDERGROUND'],
+paint: {
+'circle-color': '#4CAF50',
+'circle-radius': 12, // Made bigger
+'circle-stroke-color': '#000000',
+'circle-stroke-width': 2
+},
 layout: {
-'icon-image': 'underground-square',
-'icon-size': 1.2, // Make it bigger
-'icon-allow-overlap': true
+'visibility': 'visible'
 }
 });
 
@@ -236,6 +228,9 @@ paint: {
 'circle-radius': 8,
 'circle-stroke-color': '#000000',
 'circle-stroke-width': 1
+},
+layout: {
+'visibility': 'visible'
 }
 });
 
@@ -249,6 +244,9 @@ paint: {
 'circle-radius': 6,
 'circle-stroke-color': '#ffffff',
 'circle-stroke-width': 1
+},
+layout: {
+'visibility': 'visible'
 }
 });
 
@@ -261,10 +259,11 @@ layout: {
 'text-field': ['get', 'OBJECTID'],
 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
 'text-size': 12,
-'text-offset': [0, -1.5], // Position above the icon
-'text-anchor': 'bottom', // Anchor at bottom so text appears above
+'text-offset': [0, -1.8], // Position above the icon
+'text-anchor': 'bottom',
 'text-allow-overlap': false,
-'text-ignore-placement': false
+'text-ignore-placement': false,
+'visibility': 'visible'
 },
 paint: {
 'text-color': '#ffffff',
@@ -282,10 +281,11 @@ layout: {
 'text-field': ['get', 'MTRNUM'],
 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
 'text-size': 10,
-'text-offset': [0, -1.2], // Position above the icon
-'text-anchor': 'bottom', // Anchor at bottom so text appears above
+'text-offset': [0, -1.5], // Position above the icon
+'text-anchor': 'bottom',
 'text-allow-overlap': false,
-'text-ignore-placement': false
+'text-ignore-placement': false,
+'visibility': 'visible'
 },
 paint: {
 'text-color': '#ffffff',
@@ -317,7 +317,7 @@ while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
 coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 }
 
-// Use the LINK field from the data which already contains the complete Fillout URL
+// Use the LINK field from the data
 const filloutUrl = properties.LINK || '#';
 
 const popupHTML = `
