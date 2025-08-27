@@ -231,7 +231,7 @@
                     map.on('sourcedata', (e) => {
                         if (e.sourceId === 'transformers' && e.isSourceLoaded) {
                             const features = map.querySourceFeatures('transformers', {
-                                sourceLayer: 'transformer_bank-3t7yaf'
+                                sourceLayer: 'transformer_bank-74hdnb'
                             });
                             
                             auditStatus.underground = features.filter(f => 
@@ -312,7 +312,7 @@
                 // Using the verified list of Tileset IDs.
                 map.addSource('transformers', {
                     type: 'vector',
-                    url: 'mapbox://fieldsense.csvoupg7' 
+                    url: 'mapbox://fieldsense.aw2znflh' 
                 });
 
                 map.addSource('meters', {
@@ -360,7 +360,7 @@ map.addLayer({
     'id': 'transformers-underground',
     'type': 'symbol',
     'source': 'transformers',
-    'source-layer': 'transformer_bank-8z5c3m', 
+    'source-layer': 'transformer_bank-74hdnb', 
     // ✅ CORRECTED FILTER PROPERTY AND VALUE
     'filter': ['==', 'TRANSFORME', 'Underground'], 
     'minzoom': 16.5,
@@ -383,7 +383,7 @@ map.addLayer({
     'id': 'transformers-overhead',
     'type': 'circle',
     'source': 'transformers',
-    'source-layer': 'transformer_bank-8z5c3m', 
+    'source-layer': 'transformer_bank-74hdnb', 
     // ✅ CORRECTED FILTER PROPERTY AND VALUE
     'filter': ['!=', 'TRANSFORME', 'Underground'],
     'minzoom': 16.5,
@@ -493,10 +493,10 @@ map.addLayer({
     const popupHTML = `
         <h4>Transformer Details</h4>
         <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-        <p><strong>Feeder:</strong> ${properties.FEEDERID_1 || 'N/A'}</p> 
-        <p><strong>KVA:</strong> ${properties.BANKKVA || 'N/A'}</p>
-        <p><strong>Type:</strong> ${properties.TRANSFORME || 'N/A'}</p>
-        <p><strong>Comments:</strong> ${properties.TMPCOMME_1 || 'N/A'}</p>
+        <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
+        <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+        <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
+        <p><strong>COLOR:</strong> ${properties.COLOR || 'N/A'}</p>
         <a href="${properties.Link}" target="_blank">Open Audit Form &rarr;</a>
     `;
     popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
