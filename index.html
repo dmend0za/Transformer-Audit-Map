@@ -237,42 +237,57 @@ function countMapFeatures() {
 // Count transformers when layers are loaded
 map.on('sourcedata', (e) => {
 if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-const features = map.querySourceFeatures('transformers', {
-sourceLayer: 'transformer_bank-2wyyho'
-});
+    const features = map.querySourceFeatures('transformers', {
+        sourceLayer: 'transformer_bank-2wyyho'
+    });
 
-console.log('🔍 Total transformer features found:', features.length);
+    console.log('🔍 Total transformer features found:', features.length);
 
-// Debug: Let's see what properties are available
-if (features.length > 0) {
-console.log('📋 Sample transformer properties:', features[0].properties);
-console.log('🔍 Available property keys:', Object.keys(features[0].properties));
-}
+    // Debug: Let's see what properties are available
+    if (features.length > 0) {
+        console.log('📋 Sample transformer properties:', features[0].properties);
+        console.log('🔍 Available property keys:', Object.keys(features[0].properties));
+        
+        // Show some sample OBJECTID values to help with matching
+        const sampleIds = features.slice(0, 5).map(f => f.properties.OBJECTID);
+        console.log('🆔 Sample OBJECTID values:', sampleIds);
+        
+        // Check if 32891 and 11492 exist in the data
+        const testIds = ['32891', '11492'];
+        testIds.forEach(testId => {
+            const found = features.find(f => String(f.properties.OBJECTID) === testId);
+            if (found) {
+                console.log(`✅ Found transformer ${testId}:`, found.properties);
+            } else {
+                console.log(`❌ Transformer ${testId} NOT found in map data`);
+            }
+        });
+    }
 
-auditStatus.underground = features.filter(f => 
-f.properties.TRANSFORMER === 'Underground'
-).length;
+    auditStatus.underground = features.filter(f => 
+        f.properties.TRANSFORMER === 'Underground'
+    ).length;
 
-auditStatus.overhead = features.filter(f => 
-f.properties.TRANSFORMER !== 'Underground'
-).length;
+    auditStatus.overhead = features.filter(f => 
+        f.properties.TRANSFORMER !== 'Underground'
+    ).length;
 
-console.log('📊 Underground transformers:', auditStatus.underground);
-console.log('📊 Overhead transformers:', auditStatus.overhead);
+    console.log('📊 Underground transformers:', auditStatus.underground);
+    console.log('📊 Overhead transformers:', auditStatus.overhead);
 
-auditStatus.total = auditStatus.underground + auditStatus.overhead;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
+    auditStatus.total = auditStatus.underground + auditStatus.overhead;
+    auditStatus.pending = auditStatus.total - auditStatus.completed;
 
-updateLegendCounts();
+    updateLegendCounts();
 }
 
 if (e.sourceId === 'meters' && e.isSourceLoaded) {
-const meterFeatures = map.querySourceFeatures('meters', {
-sourceLayer: 'electric_meters-5xjegj'
-});
-auditStatus.meters = meterFeatures.length;
-console.log('📊 Electric meters:', auditStatus.meters);
-updateLegendCounts();
+    const meterFeatures = map.querySourceFeatures('meters', {
+        sourceLayer: 'electric_meters-5xjegj'
+    });
+    auditStatus.meters = meterFeatures.length;
+    console.log('📊 Electric meters:', auditStatus.meters);
+    updateLegendCounts();
 }
 });
 }
