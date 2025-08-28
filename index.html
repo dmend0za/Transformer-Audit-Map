@@ -493,16 +493,31 @@ coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 // Use the LINK field from the data which already contains the complete Fillout URL
 const filloutUrl = properties.LINK || '#';
 
-// ✅ CORRECTED PROPERTY NAMES
-const popupHTML = `
+// Helper function to check if a value is not null, undefined, or empty string
+const hasValue = (value) => {
+return value !== null && value !== undefined && value !== '' && value !== 'N/A';
+};
+
+// Build popup HTML with conditional fields
+let popupHTML = `
       <h4>Transformer Details</h4>
       <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
       <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
       <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-      <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
-      <p><strong>COLOR:</strong> ${properties.COLOR || 'N/A'}</p>
-      <a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>
-  `;
+      <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>`;
+
+// Only add COLOR field if it has a value
+if (hasValue(properties.COLOR)) {
+    popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
+}
+
+if (hasValue(properties.STYLE)) {
+    popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
+ }
+
+// Add the audit form link
+popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
+
 popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
 };
 
