@@ -164,680 +164,242 @@ Overhead
 <span class="legend-count status-completed" id="completed-count">0</span>
 </div>
 <div class="legend-item">
-<div class="status-pending">Pending Audits:</div>
+<div class="status-pending">Remaining Audits:</div>
 <span class="legend-count status-pending" id="pending-count">-</span>
 </div>
-<div style="font-size: 12px; color: #666; margin-top: 8px;">
-<div class="legend-item">
-<div>
-<span class="legend-symbol meter"></span>
-Electric Meters
 </div>
-<span class="legend-count" id="meter-count">-</span>
-</div>
-<div style="margin-top: 10px; padding: 8px; background: rgba(76, 175, 80, 0.1); border-radius: 4px; border-left: 3px solid #4CAF50;">
-<div style="font-size: 11px; color: #2E7D32; font-weight: 600;">🔄 LIVE UPDATES</div>
-<div style="font-size: 10px; color: #2E7D32; margin-top: 2px;">
-Completed audits automatically hidden<br>
-Refreshes every 30 seconds
-</div>
-</div>
-</div>
-</div>
+
 <div id="unsupported">
-<h2>Map Display Error</h2>
-<p>Sorry, your browser or environment does not support WebGL, which is required to view this map.</p>
+<h2>WebGL not supported</h2>
+<p>Your browser or device does not support WebGL, which is required to display this map.</p>
+<p>Please try updating your browser or using a different device.</p>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-// Hide the unsupported message by default
-document.getElementById('unsupported').style.display = 'none';
+// Check if WebGL is supported
+if (!mapboxgl.supported()) {
+document.getElementById('map').style.display = 'none';
+document.getElementById('unsupported').style.display = 'flex';
+return;
+}
 
-// Check if Mapbox GL is supported in the current browser/environment.
-if (mapboxgl.supported()) {
-// --- MAPBOX INITIALIZATION ---
-mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
+// Initialize the map
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2l0eW9ma2VubHkiLCJhIjoiY20wMjhqcXJzMGhlZzJsczR2ZXZicDk3NiJ9.4EdrKRPjLOQ1Kl8FRc5-tw';
 
-// Initialize the map with a high-quality basemap style.
 const map = new mapboxgl.Map({
-container: 'map', // The ID of the div element to hold the map
-style: 'mapbox://styles/mapbox/streets-v12', // High-quality satellite with street labels
-center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
-zoom: 13, // Initial zoom level
-failIfMajorPerformanceCaveat: false
+container: 'map',
+style: 'mapbox://styles/cityofkenly/cm028kd0d001601qzg9w4c2y6',
+center: [-78.1344, 35.6734], // Kenly, NC
+zoom: 16
 });
 
-// --- MAP LOAD EVENT ---
-// This function runs once the map's style has finished loading.
-map.on('load', () => {
-// Initialize audit status tracking
-let auditStatus = {
-total: 0,
-completed: 0,
-pending: 0,
-underground: 0,
-overhead: 0,
-meters: 0,
-completedTransformers: new Set() // Track completed transformer IDs
+const popup = new mapboxgl.Popup({
+closeButton: true,
+closeOnClick: false
+});
+
+// Store completed transformer IDs
+let completedTransformerIds = new Set();
+
+// Function to check if a value exists and is not empty
+const hasValue = (value) => {
+return value !== undefined && value !== null && value !== '' && value.toString().trim() !== '';
+};
+
+// Function to update map data and counts
+const updateMapData = async () => {
+try {
+console.log('Fetching spreadsheet data...');
+const response = await fetch('https://docs.google.com/spreadsheets/d/1ywqJF3DJu5mJZKZQHGn4VoQEHkgqUIiWf7xTIFBhm5s/export?format=csv&gid=0');
+if (!response.ok) {
+throw new Error(`HTTP error! status: ${response.status}`);
+}
+const csvText = await response.text();
+console.log('CSV data received, length:', csvText.length);
+
+const rows = csvText.split('\n');
+const newCompletedIds = new Set();
+
+// Skip header row, process data rows
+for (let i = 1; i < rows.length; i++) {
+const row = rows[i];
+if (!row.trim()) continue;
+
+const columns = row.split(',');
+if (columns.length < 11) continue; // Ensure we have enough columns
+
+// Column D (index 3) for status, Column K (index 10) for transformer ID
+const status = columns[3]?.trim().replace(/"/g, '');
+const transformerId = columns[10]?.trim().replace(/"/g, '');
+
+console.log(`Row ${i}: Status="${status}", TransformerID="${transformerId}"`);
+
+if (transformerId && status?.toLowerCase() === 'complete') {
+newCompletedIds.add(transformerId);
+console.log(`Added completed transformer: ${transformerId}`);
+}
+}
+
+console.log('New completed IDs:', Array.from(newCompletedIds));
+console.log('Previous completed IDs:', Array.from(completedTransformerIds));
+
+// Update the completed IDs set
+completedTransformerIds = newCompletedIds;
+
+// Filter map features to hide completed transformers and their meters
+if (map.getLayer('transformers-underground')) {
+updateLayerFilters();
+}
+
+updateLegendCounts();
+console.log(`Total completed transformers: ${completedTransformerIds.size}`);
+
+} catch (error) {
+console.error('Error updating map data:', error);
+}
+};
+
+// Function to update layer filters to hide completed transformers and their meters
+const updateLayerFilters = () => {
+const completedIdsArray = Array.from(completedTransformerIds);
+
+console.log('Applying filters for completed IDs:', completedIdsArray);
+
+// Create filter to exclude completed transformers
+const transformerFilter = completedIdsArray.length > 0 
+? ['!', ['in', ['get', 'TXID'], ['literal', completedIdsArray]]]
+: null;
+
+// Create filter to exclude meters associated with completed transformers
+const meterFilter = completedIdsArray.length > 0
+? ['!', ['in', ['get', 'TXID'], ['literal', completedIdsArray]]]
+: null;
+
+// Apply filters to transformer layers
+['transformers-underground', 'transformers-overhead', 'transformer-labels'].forEach(layerId => {
+if (map.getLayer(layerId)) {
+if (transformerFilter) {
+map.setFilter(layerId, transformerFilter);
+console.log(`Applied transformer filter to ${layerId}`);
+} else {
+map.setFilter(layerId, null);
+console.log(`Removed filter from ${layerId}`);
+}
+}
+});
+
+// Apply filters to meter layers
+['electric-meters', 'meter-labels'].forEach(layerId => {
+if (map.getLayer(layerId)) {
+if (meterFilter) {
+map.setFilter(layerId, meterFilter);
+console.log(`Applied meter filter to ${layerId}`);
+} else {
+map.setFilter(layerId, null);
+console.log(`Removed filter from ${layerId}`);
+}
+}
+});
+};
+
+// Function to count features that pass the current filter
+const countVisibleFeatures = (layerId) => {
+if (!map.getLayer(layerId)) return 0;
+
+const features = map.querySourceFeatures('composite', {
+sourceLayer: layerId.includes('transformer') ? 'Electric_Transformers-aacayl' : 'Electric_Meters-6v8wgf'
+});
+
+if (!features) return 0;
+
+const completedIdsArray = Array.from(completedTransformerIds);
+
+return features.filter(feature => {
+const txid = feature.properties.TXID;
+return !completedIdsArray.includes(txid);
+}).length;
 };
 
 // Function to update legend counts
-function updateLegendCounts() {
-document.getElementById('total-count').textContent = auditStatus.total;
-document.getElementById('completed-count').textContent = auditStatus.completed;
-document.getElementById('pending-count').textContent = auditStatus.pending;
-document.getElementById('underground-count').textContent = auditStatus.underground;
-document.getElementById('overhead-count').textContent = auditStatus.overhead;
-document.getElementById('meter-count').textContent = auditStatus.meters;
-}
-
-// Function to count features after map loads
-function countMapFeatures() {
-// Count transformers when layers are loaded
-map.on('sourcedata', (e) => {
-if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-
-    const features = map.querySourceFeatures('transformers', {
-        sourceLayer: 'transformer_bank-2wyyho'
-    });
-
-    console.log('🔍 Total transformer features found:', features.length);
-
-    // Debug: Let's see what properties are available
-    if (features.length > 0) {
-        console.log('📋 Sample transformer properties:', features[0].properties);
-        console.log('🔍 Available property keys:', Object.keys(features[0].properties));
-        
-        // Show some sample OBJECTID values to help with matching
-        const sampleIds = features.slice(0, 5).map(f => f.properties.OBJECTID);
-        console.log('🆔 Sample OBJECTID values:', sampleIds);
-        
-        // Check if 32891 and 11492 exist in the data
-        const testIds = ['32891', '11492'];
-        testIds.forEach(testId => {
-            const found = features.find(f => String(f.properties.OBJECTID) === testId);
-            if (found) {
-                console.log(`✅ Found transformer ${testId}:`, found.properties);
-            } else {
-                console.log(`❌ Transformer ${testId} NOT found in map data`);
-            }
-        });
-    }
-
-
-    auditStatus.underground = features.filter(f => 
-        f.properties.TRANSFORMER === 'Underground'
-    ).length;
-
-
-    auditStatus.overhead = features.filter(f => 
-        f.properties.TRANSFORMER !== 'Underground'
-    ).length;
-
-
-    console.log('📊 Underground transformers:', auditStatus.underground);
-    console.log('📊 Overhead transformers:', auditStatus.overhead);
-
-
-    auditStatus.total = auditStatus.underground + auditStatus.overhead;
-    auditStatus.pending = auditStatus.total - auditStatus.completed;
-
-
-    updateLegendCounts();
-}
-
-if (e.sourceId === 'meters' && e.isSourceLoaded) {
-    const meterFeatures = map.querySourceFeatures('meters', {
-        sourceLayer: 'electric_meters-5xjegj'
-    });
-    auditStatus.meters = meterFeatures.length;
-    console.log('📊 Electric meters:', auditStatus.meters);
-    updateLegendCounts();
-}
-});
-}
-
-// Google Sheets configuration
-const SPREADSHEET_ID = '1adtx-0Lj5kVNpc9JRDSnABYwiAxSFzBlfn_y-1A3QKw';
-const API_KEY = 'YOUR_API_KEY_HERE'; // You'll need to replace this with your actual API key
-const SHEET_RANGE = 'Sheet1!A:C'; // Adjust range as needed for your columns
-
-// Function to check audit status from Google Sheets
-async function checkAuditStatus() {
-console.log('🔄 Checking audit status from Google Sheets...');
-
+const updateLegendCounts = () => {
 try {
-// Method 1: Try using CSV export (no API key required)
-await checkAuditStatusViaCsv();
-} catch (csvError) {
-console.log('CSV method failed, trying API method...', csvError);
-try {
-// Method 2: Fallback to Sheets API (requires API key)
-await checkAuditStatusViaApi();
-} catch (apiError) {
-console.error('❌ Both CSV and API methods failed:', apiError);
-// Show user-friendly message
-showApiKeyNeededMessage();
-}
-}
-}
+// Count visible (non-completed) features
+const undergroundCount = countVisibleFeatures('transformers-underground');
+const overheadCount = countVisibleFeatures('transformers-overhead');
+const totalVisible = undergroundCount + overheadCount;
+const completedCount = completedTransformerIds.size;
 
-// Method 1: Using CSV export (simpler, no API key needed)
-async function checkAuditStatusViaCsv() {
-const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`;
-console.log('📊 Fetching CSV from:', csvUrl);
-
-const response = await fetch(csvUrl, {
-mode: 'cors'
+console.log('Legend counts:', {
+underground: undergroundCount,
+overhead: overheadCount,
+totalVisible,
+completed: completedCount
 });
 
-if (!response.ok) {
-throw new Error(`CSV fetch failed: ${response.status}`);
-}
+// Update legend display
+document.getElementById('underground-count').textContent = undergroundCount;
+document.getElementById('overhead-count').textContent = overheadCount;
+document.getElementById('total-count').textContent = totalVisible + completedCount;
+document.getElementById('completed-count').textContent = completedCount;
+document.getElementById('pending-count').textContent = totalVisible;
 
-const csvText = await response.text();
-console.log('✅ CSV data received, length:', csvText.length);
-
-// Parse CSV using simple parsing (you could use a library like PapaParse for more robust parsing)
-const rows = csvText.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
-const headers = rows[0];
-console.log('📋 Headers found:', headers);
-
-// Find the columns we need
-const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id'));
-const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
-
-if (transformerIdIndex === -1 || statusIndex === -1) {
-throw new Error('Required columns (transformer_id and status) not found in spreadsheet');
-}
-
-console.log(`🔍 Using columns: transformer_id=${transformerIdIndex}, status=${statusIndex}`);
-
-// Process the data
-const completedTransformers = [];
-for (let i = 1; i < rows.length; i++) {
-const row = rows[i];
-if (row.length > Math.max(transformerIdIndex, statusIndex)) {
-const transformerId = row[transformerIdIndex];
-const status = row[statusIndex];
-
-console.log(`📝 Row ${i}: ID=${transformerId}, Status=${status}`);
-
-if (status && status.toLowerCase() === 'complete' && transformerId) {
-completedTransformers.push(transformerId);
-}
-}
-}
-
-console.log('✅ Completed transformers found:', completedTransformers);
-updateCompletedTransformers(completedTransformers);
-}
-
-// Method 2: Using Sheets API v4 (requires API key)
-async function checkAuditStatusViaApi() {
-if (API_KEY === 'YOUR_API_KEY_HERE') {
-throw new Error('API key not configured');
-}
-
-const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}?key=${API_KEY}`;
-console.log('🔑 Fetching via API:', apiUrl);
-
-const response = await fetch(apiUrl);
-if (!response.ok) {
-throw new Error(`API request failed: ${response.status}`);
-}
-
-const data = await response.json();
-const rows = data.values || [];
-
-if (rows.length === 0) {
-console.log('📭 No data found in spreadsheet');
-return;
-}
-
-const headers = rows[0];
-const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
-const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
-
-if (transformerIdIndex === -1 || statusIndex === -1) {
-throw new Error('Required columns not found');
-}
-
-const completedTransformers = [];
-for (let i = 1; i < rows.length; i++) {
-const row = rows[i];
-if (row.length > Math.max(transformerIdIndex, statusIndex)) {
-const transformerId = row[transformerIdIndex];
-const status = row[statusIndex];
-
-if (status && status.toLowerCase() === 'complete' && transformerId) {
-completedTransformers.push(transformerId);
-}
-}
-}
-
-console.log('✅ Completed transformers found via API:', completedTransformers);
-updateCompletedTransformers(completedTransformers);
-}
-
-// Show message when API key is needed
-function showApiKeyNeededMessage() {
-const message = `
-⚠️ Google Sheets Integration Setup Needed
-
-To enable automatic hiding of completed audits, you need to:
-
-1. Get a Google Sheets API key from Google Cloud Console
-2. Replace 'YOUR_API_KEY_HERE' in the code with your actual API key
-3. Make sure your spreadsheet is publicly viewable
-
-Current status: Using demo mode (no audits will be hidden)
-`;
-
-console.log(message);
-
-// Optionally show this to the user in the UI
-if (confirm('Google Sheets integration needs setup. Would you like to see the setup instructions?')) {
-alert(message);
-}
-}
-
-// Function to update completed transformers and hide them from map along with associated meters
-function updateCompletedTransformers(completedIds) {
-console.log('🎯 Updating completed transformers:', completedIds);
-
-auditStatus.completedTransformers = new Set(completedIds);
-auditStatus.completed = completedIds.length;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
-
-// Function to update completed transformers and hide them from map along with associated meters
-function updateCompletedTransformers(completedIds) {
-console.log('🎯 Updating completed transformers:', completedIds);
-
-auditStatus.completedTransformers = new Set(completedIds);
-auditStatus.completed = completedIds.length;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
-
-console.log('📊 Audit Status Update:');
-console.log('   - Total:', auditStatus.total);
-console.log('   - Completed:', auditStatus.completed);
-console.log('   - Pending:', auditStatus.pending);
-
-// Apply filters to hide completed transformers
-if (map.getLayer('transformers-underground')) {
-if (completedIds.length > 0) {
-const undergroundFilter = [
-'all',
-['==', 'TRANSFORMER', 'Underground'],
-['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
-];
-console.log('🟢 Applying underground filter:', undergroundFilter);
-map.setFilter('transformers-underground', undergroundFilter);
-} else {
-// No completed transformers, show all underground transformers
-map.setFilter('transformers-underground', ['==', 'TRANSFORMER', 'Underground']);
-console.log('🟢 Showing all underground transformers');
-}
-}
-
-if (map.getLayer('transformers-overhead')) {
-if (completedIds.length > 0) {
-const overheadFilter = [
-'all',
-['!=', 'TRANSFORMER', 'Underground'],
-['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
-];
-console.log('🔵 Applying overhead filter:', overheadFilter);
-map.setFilter('transformers-overhead', overheadFilter);
-} else {
-// No completed transformers, show all overhead transformers
-map.setFilter('transformers-overhead', ['!=', 'TRANSFORMER', 'Underground']);
-console.log('🔵 Showing all overhead transformers');
-}
-}
-
-if (map.getLayer('transformer-labels')) {
-if (completedIds.length > 0) {
-const labelFilter = ['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)];
-console.log('🏷️ Applying label filter:', labelFilter);
-map.setFilter('transformer-labels', labelFilter);
-} else {
-// No completed transformers, show all labels
-map.setFilter('transformer-labels', null);
-console.log('🏷️ Showing all transformer labels');
-}
-}
-
-// Hide meters associated with completed transformers
-hideAssociatedMeters(completedIds);
-
-updateLegendCounts();
-console.log('✅ Map updated - completed transformers and associated meters are now hidden');
-}
-
-// Hide meters associated with completed transformers
-// We need to get the FEEDERID from completed transformers and hide meters on the same feeder
-hideAssociatedMeters(completedIds);
-
-updateLegendCounts();
-console.log('✅ Map updated - completed transformers and associated meters are now hidden');
-}
-
-// Function to hide meters associated with completed transformers
-async function hideAssociatedMeters(completedTransformerIds) {
-if (completedTransformerIds.length === 0) {
-console.log('📍 No completed transformers - showing all meters');
-// Show all meters if no transformers are completed
-if (map.getLayer('electric-meters')) {
-map.setFilter('electric-meters', null);
-}
-if (map.getLayer('meter-labels')) {
-map.setFilter('meter-labels', null);
-}
-return;
-}
-
-try {
-console.log('🔍 Finding feeders for completed transformers...');
-
-// Query transformer features to get their FEEDERID values
-const completedFeederIds = new Set();
-
-// Wait for the source to be loaded
-if (map.isSourceLoaded('transformers')) {
-const transformerFeatures = map.querySourceFeatures('transformers', {
-sourceLayer: 'transformer_bank-2wyyho'
-});
-
-// Find FEEDERID values for completed transformers
-transformerFeatures.forEach(feature => {
-const objectId = feature.properties.OBJECTID;
-const feederId = feature.properties.FEEDERID;
-
-if (completedTransformerIds.includes(String(objectId)) && feederId) {
-completedFeederIds.add(feederId);
-console.log(`📡 Transformer ${objectId} on feeder ${feederId} is complete`);
-}
-});
-
-console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
-
-// Create filter to hide meters on completed feeders
-if (completedFeederIds.size > 0) {
-const meterFilter = ['!in', 'FEEDERID', ...Array.from(completedFeederIds)];
-
-console.log('🔍 Applying meter filter:', meterFilter);
-
-// Apply filter to hide meters on completed feeders
-if (map.getLayer('electric-meters')) {
-map.setFilter('electric-meters', meterFilter);
-}
-if (map.getLayer('meter-labels')) {
-map.setFilter('meter-labels', meterFilter);
-}
-} else {
-console.log('📍 No valid feeder IDs found for completed transformers');
-}
-} else {
-console.log('⏳ Transformer source not yet loaded, will retry when available');
-// Retry when source becomes available
-map.once('sourcedata', (e) => {
-if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-hideAssociatedMeters(completedTransformerIds);
-}
-});
-}
 } catch (error) {
-console.error('❌ Error hiding associated meters:', error);
+console.error('Error updating legend counts:', error);
 }
-}
-
-// Start initial audit status check and set up periodic refresh
-console.log('🚀 Initializing audit status tracking...');
-countMapFeatures();
-
-// Initial check
-checkAuditStatus();
-
-// Set up periodic refresh every 30 seconds
-const refreshInterval = setInterval(() => {
-console.log('🔄 Periodic audit status refresh...');
-checkAuditStatus();
-}, 30000);
-
-// Also refresh when the user clicks on the map (manual refresh)
-map.on('click', () => {
-// Debounce to avoid too many calls
-clearTimeout(window.auditRefreshTimeout);
-window.auditRefreshTimeout = setTimeout(() => {
-console.log('🖱️ Manual refresh triggered by map click');
-checkAuditStatus();
-}, 1000);
-});
-
-// Expose functions globally for manual control
-window.updateAuditStatus = updateCompletedTransformers;
-window.refreshAuditData = checkAuditStatus;
-window.stopAuditRefresh = () => {
-clearInterval(refreshInterval);
-console.log('⏹️ Audit refresh stopped');
 };
 
-console.log('✅ Audit status tracking initialized');
-console.log('💡 Available functions: window.refreshAuditData(), window.stopAuditRefresh()');
+// Map load event handler
+map.on('load', () => {
+console.log('Map loaded successfully');
+updateMapData();
+updateLegendCounts();
 
-// --- ADD TILESET SOURCES ---
-// Using the verified list of Tileset IDs.
-map.addSource('transformers', {
-type: 'vector',
-url: 'mapbox://fieldsense.4w34kdko' 
-});
+// Set up periodic updates every 30 seconds
+setInterval(updateMapData, 30000);
 
-map.addSource('meters', {
-type: 'vector',
-url: 'mapbox://fieldsense.4hey26iq'
-});
-
-map.addSource('secondary-oh', {
-type: 'vector',
-url: 'mapbox://fieldsense.c53vz8g4'
-});
-
-map.addSource('secondary-ug', {
-type: 'vector',
-url: 'mapbox://fieldsense.2hebp65r'
-});
-
-// --- ADD LAYERS ---
-// Using the verified list of source layer names.
-
-// 1. Underground Feeders Layer (Darker Blue Dashed)
-map.addLayer({
-'id': 'ug-feeders',
-'type': 'line',
-'source': 'secondary-ug',
-'source-layer': 'secondary_UG-0ox1k5',
-'minzoom': 17,
-'layout': { 'line-join': 'round', 'line-cap': 'round' },
-'paint': { 'line-color': '#003366', 'line-width': 2, 'line-dasharray': [2, 2] }
-});
-
-// 2. Overhead Feeders Layer (Red Solid)
-map.addLayer({
-'id': 'oh-feeders',
-'type': 'line',
-'source': 'secondary-oh',
-'source-layer': 'secondary_OH-27459y',
-'minzoom': 17,
-'layout': { 'line-join': 'round', 'line-cap': 'round' },
-'paint': { 'line-color': '#FF0000', 'line-width': 2 }
-});
-
-// 3. Underground Transformers Layer (Light Green Squares)
-map.addLayer({
-'id': 'transformers-underground',
-'type': 'symbol',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
-'filter': ['==', 'TRANSFORMER', 'Underground'], 
-'minzoom': 16.5,
-'layout': {
-'text-field': '■', // Unicode square character
-'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-'text-size': 24, 
-'text-allow-overlap': true,
-'text-ignore-placement': true
-},
-'paint': {
-'text-color': '#4CAF50', 
-'text-halo-color': '#000000',
-'text-halo-width': 1.5
-}
-});
-
-// 4. Overhead Transformers Layer (Light Gray Circles)
-map.addLayer({
-'id': 'transformers-overhead',
-'type': 'circle',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
-'filter': ['!=', 'TRANSFORMER', 'Underground'],
-'minzoom': 16.5,
-'paint': { 
-'circle-color': 'hsl(123, 7%, 85%)',
-'circle-radius': 8,
-'circle-stroke-width': 2, 
-'circle-stroke-color': '#000000'
-}
-});
-// 5. Electric Meters Layer (Bigger Dark Gray with White Stroke)
-map.addLayer({
-'id': 'electric-meters',
-'type': 'circle',
-'source': 'meters',
-'source-layer': 'electric_meters-5xjegj',
-'minzoom': 18,
-'paint': { 
-'circle-color': '#555555', // Dark gray
-'circle-radius': 6, // Bigger than before (was 4)
-'circle-stroke-width': 1, 
-'circle-stroke-color': '#ffffff' // White stroke
-}
-});
-
-// 6. Transformer Labels (appear at high zoom with larger dynamic sizing)
-map.addLayer({
-'id': 'transformer-labels',
-'type': 'symbol',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho',
-'minzoom': 18,
-'layout': {
-'text-field': [
-'format',
-['get', 'OBJECTID'], { 'font-scale': 0.9 },
-'\n', {},
-['get', 'KVA'], { 'font-scale': 0.8 },
-' KVA', { 'font-scale': 0.8 }
-],
-'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-'text-size': [
-'interpolate',
-['linear'],
-['zoom'],
-18, 14,  // At zoom 18, text size is 14 (was 9)
-20, 18,  // At zoom 20, text size is 18 (was 12)
-22, 24   // At zoom 22, text size is 24 (was 16)
-],
-'text-offset': [0, -2.5],
-'text-offset': [0, -2.8],
-'text-anchor': 'top',
-'text-allow-overlap': false,
-'text-ignore-placement': false
-},
-'paint': {
-'text-color': '#333333',
-'text-halo-color': '#ffffff',
-'text-halo-width': 2
-}
-});
-
-// 7. Electric Meter Labels (appear at high zoom with larger dynamic sizing)
-map.addLayer({
-'id': 'meter-labels',
-'type': 'symbol',
-'source': 'meters',
-'source-layer': 'electric_meters-5xjegj',
-'minzoom': 19,
-'layout': {
-'text-field': ['get', 'MTRNUM'],
-'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-'text-size': [
-'interpolate',
-['linear'],
-['zoom'],
-19, 12,  // At zoom 19, text size is 12 (was 8)
-21, 16,  // At zoom 21, text size is 16 (was 11)
-22, 20   // At zoom 22, text size is 20 (was 14)
-],
-'text-offset': [0, -2],
-'text-anchor': 'top',
-'text-allow-overlap': false,
-'text-ignore-placement': false
-},
-'paint': {
-'text-color': '#000000', // Black color
-'text-halo-color': '#ffffff',
-'text-halo-width': 2
-}
-});
-
-// --- INTERACTIVITY ---
-const popup = new mapboxgl.Popup({
-closeButton: true,  // Enable close button
-closeOnClick: false, // Don't close when clicking elsewhere on map
-closeOnMove: false   // Don't close when moving the map
-});
-
+// Create popup for transformers
 const createTransformerPopup = (e) => {
 const properties = e.features[0].properties;
 const coordinates = e.features[0].geometry.coordinates.slice();
+
+// Ensure longitude doesn't exceed 180 degrees
 while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
 coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 }
 
-// Use the LINK field from the data which already contains the complete Fillout URL
-const filloutUrl = properties.LINK || '#';
+console.log('Transformer properties:', properties);
 
-// Debug: Log the actual values to see what we're working with
-console.log('COLOR value:', JSON.stringify(properties.COLOR));
-console.log('STYLE value:', JSON.stringify(properties.STYLE));
-console.log('COLOR type:', typeof properties.COLOR);
-console.log('STYLE type:', typeof properties.STYLE);
+// Create the Fillout form URL with pre-filled data
+const filloutUrl = `https://forms.fillout.com/t/rr4X9kBBZMus?TXID=${encodeURIComponent(properties.TXID || '')}&TYPE=${encodeURIComponent(properties.TYPE || '')}&KVA=${encodeURIComponent(properties.KVA || '')}&VOLTAGE=${encodeURIComponent(properties.VOLTAGE || '')}&FEEDERID=${encodeURIComponent(properties.FEEDERID || '')}&COLOR=${encodeURIComponent(properties.COLOR || '')}&STYLE=${encodeURIComponent(properties.STYLE || '')}`;
 
-// Helper function to check if a value is not null, undefined, empty string, or just whitespace
-const hasValue = (value) => {
-// First check for null/undefined
-if (value === null || value === undefined) {
-return false;
+// Build popup content
+let popupHTML = `<h4>${properties.TYPE || 'Unknown'} Transformer</h4>`;
+popupHTML += `<p><strong>ID:</strong> ${properties.TXID || 'N/A'}</p>`;
+
+// Only add KVA field if it has a value
+if (hasValue(properties.KVA)) {
+popupHTML += `<p><strong>KVA:</strong> ${properties.KVA}</p>`;
+console.log('KVA field added:', properties.KVA);
+} else {
+console.log('KVA field skipped for value:', properties.KVA);
 }
 
-// Convert to string and trim whitespace
-const trimmed = String(value).trim().toLowerCase();
+// Only add VOLTAGE field if it has a value
+if (hasValue(properties.VOLTAGE)) {
+popupHTML += `<p><strong>VOLTAGE:</strong> ${properties.VOLTAGE}</p>`;
+console.log('VOLTAGE field added:', properties.VOLTAGE);
+} else {
+console.log('VOLTAGE field skipped for value:', properties.VOLTAGE);
+}
 
-// Check for various "empty" representations
-const emptyValues = ['', 'null', 'undefined', 'n/a', 'na', 'none', 'empty', '<null>'];
-return !emptyValues.includes(trimmed) && trimmed.length > 0;
-};
-
-// Build popup HTML with conditional fields
-let popupHTML = `
-     <h4>Transformer Details</h4>
-     <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-     <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
-     <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-     <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>`;
+// Only add FEEDERID field if it has a value
+if (hasValue(properties.FEEDERID)) {
+popupHTML += `<p><strong>FEEDER:</strong> ${properties.FEEDERID}</p>`;
+console.log('FEEDERID field added:', properties.FEEDERID);
+} else {
+console.log('FEEDERID field skipped for value:', properties.FEEDERID);
+}
 
 // Only add COLOR field if it has a value
 if (hasValue(properties.COLOR)) {
@@ -898,18 +460,12 @@ map.getCanvas().style.cursor = 'pointer';
 
 map.on('mouseleave', layerId, () => {
 map.getCanvas().style.cursor = '';
-// Don't remove popup on mouseleave - let user interact with it
 });
 });
 });
 
 // Add zoom and rotation controls to the map.
 map.addControl(new mapboxgl.NavigationControl());
-} else {
-// If WebGL is not supported, hide the map and show the error message.
-document.getElementById('map').style.display = 'none';
-document.getElementById('unsupported').style.display = 'flex';
-}
 });
 </script>
 
