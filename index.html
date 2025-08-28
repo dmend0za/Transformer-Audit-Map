@@ -498,12 +498,15 @@ const popupHTML = `
        <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
        <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
        <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-       <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
-    
+       <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p> 
+`;
+
+// Only add STYLE if it exists and has a value
 if (properties.STYLE && properties.STYLE.trim() !== '') {
   popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
 }
 
+// Only add COLOR if it exists and has a value
 if (properties.COLOR && properties.COLOR.trim() !== '') {
   popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
 }
