@@ -493,9 +493,17 @@ coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 // Use the LINK field from the data which already contains the complete Fillout URL
 const filloutUrl = properties.LINK || '#';
 
-// Helper function to check if a value is not null, undefined, or empty string
+// Helper function to check if a value is not null, undefined, empty string, or just whitespace
 const hasValue = (value) => {
-return value !== null && value !== undefined && value !== '' && value !== 'N/A';
+// Convert to string and trim whitespace, then check if it's meaningful
+const trimmed = String(value || '').trim();
+return trimmed !== '' && 
+       trimmed !== 'null' && 
+       trimmed !== 'undefined' && 
+       trimmed !== 'N/A' && 
+       trimmed !== 'NULL' &&
+       value !== null && 
+       value !== undefined;
 };
 
 // Build popup HTML with conditional fields
@@ -511,9 +519,10 @@ if (hasValue(properties.COLOR)) {
     popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
 }
 
+// Only add STYLE field if it has a value
 if (hasValue(properties.STYLE)) {
     popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
- }
+}
 
 // Add the audit form link
 popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
