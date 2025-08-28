@@ -493,12 +493,12 @@ coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 const filloutUrl = properties.LINK || '#';
   
 // ✅ CORRECTED PROPERTY NAMES
-const popupHTML = `
-       <h4>Transformer Details</h4>
-       <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-       <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
-       <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-       <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p> 
+let popupHTML = `
+  <h4>Transformer Details</h4>
+  <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+  <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p>
+  <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+  <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
 `;
 
 // Only add STYLE if it exists and has a value
@@ -510,23 +510,27 @@ if (properties.STYLE && properties.STYLE.trim() !== '') {
 if (properties.COLOR && properties.COLOR.trim() !== '') {
   popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
 }
-       <a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>
-   ;
+
+// Add the link at the end
+popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
+
 popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-};
 
 const createMeterPopup = (e) => {
-const properties = e.features[0].properties;
-const coordinates = e.features[0].geometry.coordinates.slice();
-while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-}
-const popupHTML = `
-                       <h4>Electric Meter</h4>
-                       <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
-                       <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
-                   `;
-popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+  const properties = e.features[0].properties;
+  const coordinates = e.features[0].geometry.coordinates.slice();
+  
+  while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+  }
+  
+  const popupHTML = `
+    <h4>Electric Meter</h4>
+    <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
+    <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
+  `;
+  
+  popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
 };
 
 // Add click listeners for each interactive layer
