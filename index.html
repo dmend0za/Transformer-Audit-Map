@@ -232,72 +232,68 @@ document.getElementById('overhead-count').textContent = auditStatus.overhead;
 document.getElementById('meter-count').textContent = auditStatus.meters;
 }
 
-// Function to count features after map loads - COUNT ALL TRANSFORMERS REGARDLESS OF ZOOM
+// Function to count features after map loads
 function countMapFeatures() {
 // Count transformers when layers are loaded
 map.on('sourcedata', (e) => {
 if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-    // Use querySourceFeatures to get ALL features, not just visible ones
-const features = map.querySourceFeatures('transformers', {
-sourceLayer: 'transformer_bank-2wyyho'
-});
 
-    console.log('🔍 Total transformer features found (ALL zoom levels):', features.length);
+    const features = map.querySourceFeatures('transformers', {
+        sourceLayer: 'transformer_bank-2wyyho'
+    });
 
-// Debug: Let's see what properties are available
-if (features.length > 0) {
-console.log('📋 Sample transformer properties:', features[0].properties);
-console.log('🔍 Available property keys:', Object.keys(features[0].properties));
+    console.log('🔍 Total transformer features found:', features.length);
 
-// Show some sample OBJECTID values to help with matching
-        const sampleIds = features.slice(0, 10).map(f => f.properties.OBJECTID);
-console.log('🆔 Sample OBJECTID values:', sampleIds);
+    // Debug: Let's see what properties are available
+    if (features.length > 0) {
+        console.log('📋 Sample transformer properties:', features[0].properties);
+        console.log('🔍 Available property keys:', Object.keys(features[0].properties));
+        
+        // Show some sample OBJECTID values to help with matching
+        const sampleIds = features.slice(0, 5).map(f => f.properties.OBJECTID);
+        console.log('🆔 Sample OBJECTID values:', sampleIds);
+        
+        // Check if 32891 and 11492 exist in the data
+        const testIds = ['32891', '11492'];
+        testIds.forEach(testId => {
+            const found = features.find(f => String(f.properties.OBJECTID) === testId);
+            if (found) {
+                console.log(`✅ Found transformer ${testId}:`, found.properties);
+            } else {
+                console.log(`❌ Transformer ${testId} NOT found in map data`);
+            }
+        });
+    }
 
-// Check if 32891 and 11492 exist in the data
-const testIds = ['32891', '11492'];
-testIds.forEach(testId => {
-const found = features.find(f => String(f.properties.OBJECTID) === testId);
-if (found) {
-                console.log(`✅ Found transformer ${testId}:`, {
-                    OBJECTID: found.properties.OBJECTID,
-                    TRANSFORMER: found.properties.TRANSFORMER,
-                    FEEDERID: found.properties.FEEDERID,
-                    KVA: found.properties.KVA
-                });
-} else {
-console.log(`❌ Transformer ${testId} NOT found in map data`);
-}
-});
-}
 
-    // Count underground vs overhead transformers from ALL data
-auditStatus.underground = features.filter(f => 
-f.properties.TRANSFORMER === 'Underground'
-).length;
+    auditStatus.underground = features.filter(f => 
+        f.properties.TRANSFORMER === 'Underground'
+    ).length;
 
-auditStatus.overhead = features.filter(f => 
-f.properties.TRANSFORMER !== 'Underground'
-).length;
 
-    console.log('📊 Underground transformers (TOTAL):', auditStatus.underground);
-    console.log('📊 Overhead transformers (TOTAL):', auditStatus.overhead);
+    auditStatus.overhead = features.filter(f => 
+        f.properties.TRANSFORMER !== 'Underground'
+    ).length;
 
-auditStatus.total = auditStatus.underground + auditStatus.overhead;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
 
-    console.log('📊 TOTAL transformers across entire map:', auditStatus.total);
+    console.log('📊 Underground transformers:', auditStatus.underground);
+    console.log('📊 Overhead transformers:', auditStatus.overhead);
 
-updateLegendCounts();
+
+    auditStatus.total = auditStatus.underground + auditStatus.overhead;
+    auditStatus.pending = auditStatus.total - auditStatus.completed;
+
+
+    updateLegendCounts();
 }
 
 if (e.sourceId === 'meters' && e.isSourceLoaded) {
-    // Count ALL meters regardless of zoom level
-const meterFeatures = map.querySourceFeatures('meters', {
-sourceLayer: 'electric_meters-5xjegj'
-});
-auditStatus.meters = meterFeatures.length;
-    console.log('📊 Electric meters (TOTAL):', auditStatus.meters);
-updateLegendCounts();
+    const meterFeatures = map.querySourceFeatures('meters', {
+        sourceLayer: 'electric_meters-5xjegj'
+    });
+    auditStatus.meters = meterFeatures.length;
+    console.log('📊 Electric meters:', auditStatus.meters);
+    updateLegendCounts();
 }
 });
 }
@@ -305,6 +301,7 @@ updateLegendCounts();
 // Google Sheets configuration
 const SPREADSHEET_ID = '1adtx-0Lj5kVNpc9JRDSnABYwiAxSFzBlfn_y-1A3QKw';
 const API_KEY = 'YOUR_API_KEY_HERE'; // You'll need to replace this with your actual API key
+const SHEET_RANGE = 'Sheet1!A:C'; // Adjust range as needed for your columns
 
 // Function to check audit status from Google Sheets
 async function checkAuditStatus() {
@@ -342,79 +339,47 @@ throw new Error(`CSV fetch failed: ${response.status}`);
 const csvText = await response.text();
 console.log('✅ CSV data received, length:', csvText.length);
 
-// Parse CSV data
-const rows = csvText.split('\n').map(row => {
-// More robust CSV parsing that handles quoted fields
-const result = [];
-let current = '';
-let inQuotes = false;
+// Parse CSV using simple parsing (you could use a library like PapaParse for more robust parsing)
+const rows = csvText.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
+const headers = rows[0];
+console.log('📋 Headers found:', headers);
 
-for (let i = 0; i < row.length; i++) {
-const char = row[i];
-if (char === '"') {
-inQuotes = !inQuotes;
-} else if (char === ',' && !inQuotes) {
-result.push(current.trim());
-current = '';
-} else {
-current += char;
+// Find the columns we need
+const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
+const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+if (transformerIdIndex === -1 || statusIndex === -1) {
+throw new Error('Required columns (transformer_id and status) not found in spreadsheet');
 }
-}
-result.push(current.trim()); // Add the last field
-return result.map(cell => cell.replace(/^"|"$/g, '')); // Remove surrounding quotes
-});
 
-console.log('📋 First few rows of parsed CSV:');
-rows.slice(0, 5).forEach((row, index) => {
-console.log(`Row ${index}:`, row);
-});
+console.log(`🔍 Using columns: transformer_id=${transformerIdIndex}, status=${statusIndex}`);
 
-// Column K is index 10 (0-based), Column D is index 3 (0-based)
-const TRANSFORMER_ID_COLUMN = 10; // Column K
-const STATUS_COLUMN = 3; // Column D
-
-console.log(`🔍 Using fixed column indices: transformer_id=K(${TRANSFORMER_ID_COLUMN}), status=D(${STATUS_COLUMN})`);
-
-// Process the data starting from row 1 (skip header)
+// Process the data
 const completedTransformers = [];
 for (let i = 1; i < rows.length; i++) {
 const row = rows[i];
+if (row.length > Math.max(transformerIdIndex, statusIndex)) {
+const transformerId = row[transformerIdIndex];
+const status = row[statusIndex];
 
-// Skip empty rows
-if (!row || row.length === 0 || row.every(cell => !cell)) {
-continue;
+console.log(`📝 Row ${i}: ID=${transformerId}, Status=${status}`);
+
+if (status && status.toLowerCase() === 'complete' && transformerId) {
+completedTransformers.push(transformerId);
 }
-
-if (row.length > Math.max(TRANSFORMER_ID_COLUMN, STATUS_COLUMN)) {
-const transformerId = row[TRANSFORMER_ID_COLUMN];
-const status = row[STATUS_COLUMN];
-
-console.log(`📝 Row ${i}: K(transformer_id)="${transformerId}", D(status)="${status}"`);
-
-// Check if status is "Complete" (case insensitive) and transformer ID exists
-if (status && status.toLowerCase().trim() === 'complete' && transformerId && transformerId.trim()) {
-const cleanId = transformerId.trim();
-completedTransformers.push(cleanId);
-console.log(`✅ Added completed transformer: ${cleanId}`);
-}
-} else {
-console.log(`⚠️ Row ${i} doesn't have enough columns (has ${row.length}, needs ${Math.max(TRANSFORMER_ID_COLUMN, STATUS_COLUMN) + 1})`);
 }
 }
 
-console.log('✅ All completed transformers found:', completedTransformers);
-console.log('📊 Total completed transformers:', completedTransformers.length);
+console.log('✅ Completed transformers found:', completedTransformers);
 updateCompletedTransformers(completedTransformers);
 }
 
-// Method 2: Using Sheets API v4 (requires API key) - Updated for correct columns
+// Method 2: Using Sheets API v4 (requires API key)
 async function checkAuditStatusViaApi() {
 if (API_KEY === 'YOUR_API_KEY_HERE') {
 throw new Error('API key not configured');
 }
 
-// Request specific range for columns D and K
-const SHEET_RANGE = 'Sheet1!D:K'; // Get columns D through K to cover both
 const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}?key=${API_KEY}`;
 console.log('🔑 Fetching via API:', apiUrl);
 
@@ -431,25 +396,23 @@ console.log('📭 No data found in spreadsheet');
 return;
 }
 
-console.log('📋 API data received, processing rows...');
+const headers = rows[0];
+const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
+const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+if (transformerIdIndex === -1 || statusIndex === -1) {
+throw new Error('Required columns not found');
+}
 
 const completedTransformers = [];
-// Column D is index 0, Column K is index 7 in the D:K range
-const STATUS_COLUMN = 0; // Column D
-const TRANSFORMER_ID_COLUMN = 7; // Column K
-
-for (let i = 1; i < rows.length; i++) { // Skip header row
+for (let i = 1; i < rows.length; i++) {
 const row = rows[i];
-if (row && row.length > Math.max(STATUS_COLUMN, TRANSFORMER_ID_COLUMN)) {
-const status = row[STATUS_COLUMN];
-const transformerId = row[TRANSFORMER_ID_COLUMN];
+if (row.length > Math.max(transformerIdIndex, statusIndex)) {
+const transformerId = row[transformerIdIndex];
+const status = row[statusIndex];
 
-console.log(`📝 API Row ${i}: D(status)="${status}", K(transformer_id)="${transformerId}"`);
-
-if (status && status.toLowerCase().trim() === 'complete' && transformerId && transformerId.trim()) {
-const cleanId = transformerId.trim();
-completedTransformers.push(cleanId);
-console.log(`✅ API: Added completed transformer: ${cleanId}`);
+if (status && status.toLowerCase() === 'complete' && transformerId) {
+completedTransformers.push(transformerId);
 }
 }
 }
@@ -479,6 +442,14 @@ if (confirm('Google Sheets integration needs setup. Would you like to see the se
 alert(message);
 }
 }
+
+// Function to update completed transformers and hide them from map along with associated meters
+function updateCompletedTransformers(completedIds) {
+console.log('🎯 Updating completed transformers:', completedIds);
+
+auditStatus.completedTransformers = new Set(completedIds);
+auditStatus.completed = completedIds.length;
+auditStatus.pending = auditStatus.total - auditStatus.completed;
 
 // Function to update completed transformers and hide them from map along with associated meters
 function updateCompletedTransformers(completedIds) {
@@ -539,6 +510,14 @@ console.log('🏷️ Showing all transformer labels');
 }
 
 // Hide meters associated with completed transformers
+hideAssociatedMeters(completedIds);
+
+updateLegendCounts();
+console.log('✅ Map updated - completed transformers and associated meters are now hidden');
+}
+
+// Hide meters associated with completed transformers
+// We need to get the FEEDERID from completed transformers and hide meters on the same feeder
 hideAssociatedMeters(completedIds);
 
 updateLegendCounts();
@@ -771,6 +750,7 @@ map.addLayer({
 20, 18,  // At zoom 20, text size is 18 (was 12)
 22, 24   // At zoom 22, text size is 24 (was 16)
 ],
+'text-offset': [0, -2.5],
 'text-offset': [0, -2.8],
 'text-anchor': 'top',
 'text-allow-overlap': false,
@@ -799,4 +779,139 @@ map.addLayer({
 ['zoom'],
 19, 12,  // At zoom 19, text size is 12 (was 8)
 21, 16,  // At zoom 21, text size is 16 (was 11)
-22,
+22, 20   // At zoom 22, text size is 20 (was 14)
+],
+'text-offset': [0, -2],
+'text-anchor': 'top',
+'text-allow-overlap': false,
+'text-ignore-placement': false
+},
+'paint': {
+'text-color': '#000000', // Black color
+'text-halo-color': '#ffffff',
+'text-halo-width': 2
+}
+});
+
+// --- INTERACTIVITY ---
+const popup = new mapboxgl.Popup({
+closeButton: true,  // Enable close button
+closeOnClick: false, // Don't close when clicking elsewhere on map
+closeOnMove: false   // Don't close when moving the map
+});
+
+const createTransformerPopup = (e) => {
+const properties = e.features[0].properties;
+const coordinates = e.features[0].geometry.coordinates.slice();
+while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+}
+
+// Use the LINK field from the data which already contains the complete Fillout URL
+const filloutUrl = properties.LINK || '#';
+
+// Debug: Log the actual values to see what we're working with
+console.log('COLOR value:', JSON.stringify(properties.COLOR));
+console.log('STYLE value:', JSON.stringify(properties.STYLE));
+console.log('COLOR type:', typeof properties.COLOR);
+console.log('STYLE type:', typeof properties.STYLE);
+
+// Helper function to check if a value is not null, undefined, empty string, or just whitespace
+const hasValue = (value) => {
+// First check for null/undefined
+if (value === null || value === undefined) {
+return false;
+}
+
+// Convert to string and trim whitespace
+const trimmed = String(value).trim().toLowerCase();
+
+// Check for various "empty" representations
+const emptyValues = ['', 'null', 'undefined', 'n/a', 'na', 'none', 'empty', '<null>'];
+return !emptyValues.includes(trimmed) && trimmed.length > 0;
+};
+
+// Build popup HTML with conditional fields
+let popupHTML = `
+     <h4>Transformer Details</h4>
+     <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+     <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
+     <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+     <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>`;
+
+// Only add COLOR field if it has a value
+if (hasValue(properties.COLOR)) {
+popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
+console.log('COLOR field added:', properties.COLOR);
+} else {
+console.log('COLOR field skipped for value:', properties.COLOR);
+}
+
+// Only add STYLE field if it has a value
+if (hasValue(properties.STYLE)) {
+popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
+console.log('STYLE field added:', properties.STYLE);
+} else {
+console.log('STYLE field skipped for value:', properties.STYLE);
+}
+
+// Add the audit form link
+popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
+
+popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+};
+
+const createMeterPopup = (e) => {
+const properties = e.features[0].properties;
+const coordinates = e.features[0].geometry.coordinates.slice();
+while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+}
+const popupHTML = `
+                     <h4>Electric Meter</h4>
+                     <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
+                     <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
+                 `;
+popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+};
+
+// Add click listeners for each interactive layer
+const interactiveLayers = [
+'transformers-underground', 
+'transformers-overhead', 
+'electric-meters',
+'transformer-labels',
+'meter-labels'
+];
+interactiveLayers.forEach(layerId => {
+map.on('click', layerId, (e) => {
+if (layerId.includes('transformer')) {
+createTransformerPopup(e);
+} else if (layerId.includes('meter')) {
+createMeterPopup(e);
+}
+});
+
+map.on('mouseenter', layerId, () => {
+map.getCanvas().style.cursor = 'pointer';
+});
+
+map.on('mouseleave', layerId, () => {
+map.getCanvas().style.cursor = '';
+// Don't remove popup on mouseleave - let user interact with it
+});
+});
+});
+
+// Add zoom and rotation controls to the map.
+map.addControl(new mapboxgl.NavigationControl());
+} else {
+// If WebGL is not supported, hide the map and show the error message.
+document.getElementById('map').style.display = 'none';
+document.getElementById('unsupported').style.display = 'flex';
+}
+});
+</script>
+
+</body>
+</html>
