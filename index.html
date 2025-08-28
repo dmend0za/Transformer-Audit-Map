@@ -241,13 +241,24 @@ const features = map.querySourceFeatures('transformers', {
 sourceLayer: 'transformer_bank-2wyyho'
 });
 
+console.log('🔍 Total transformer features found:', features.length);
+
+// Debug: Let's see what properties are available
+if (features.length > 0) {
+console.log('📋 Sample transformer properties:', features[0].properties);
+console.log('🔍 Available property keys:', Object.keys(features[0].properties));
+}
+
 auditStatus.underground = features.filter(f => 
-f.properties.SUBTYPEC_1 === 'Underground Transformer'
+f.properties.TRANSFORMER === 'Underground'
 ).length;
 
 auditStatus.overhead = features.filter(f => 
-f.properties.SUBTYPEC_1 !== 'Underground Transformer'
+f.properties.TRANSFORMER !== 'Underground'
 ).length;
+
+console.log('📊 Underground transformers:', auditStatus.underground);
+console.log('📊 Overhead transformers:', auditStatus.overhead);
 
 auditStatus.total = auditStatus.underground + auditStatus.overhead;
 auditStatus.pending = auditStatus.total - auditStatus.completed;
@@ -260,6 +271,7 @@ const meterFeatures = map.querySourceFeatures('meters', {
 sourceLayer: 'electric_meters-5xjegj'
 });
 auditStatus.meters = meterFeatures.length;
+console.log('📊 Electric meters:', auditStatus.meters);
 updateLegendCounts();
 }
 });
@@ -418,39 +430,61 @@ auditStatus.completedTransformers = new Set(completedIds);
 auditStatus.completed = completedIds.length;
 auditStatus.pending = auditStatus.total - auditStatus.completed;
 
+// Function to update completed transformers and hide them from map along with associated meters
+function updateCompletedTransformers(completedIds) {
+console.log('🎯 Updating completed transformers:', completedIds);
+
+auditStatus.completedTransformers = new Set(completedIds);
+auditStatus.completed = completedIds.length;
+auditStatus.pending = auditStatus.total - auditStatus.completed;
+
+console.log('📊 Audit Status Update:');
+console.log('   - Total:', auditStatus.total);
+console.log('   - Completed:', auditStatus.completed);
+console.log('   - Pending:', auditStatus.pending);
+
 // Apply filters to hide completed transformers
 if (map.getLayer('transformers-underground')) {
     if (completedIds.length > 0) {
-        map.setFilter('transformers-underground', [
+        const undergroundFilter = [
             'all',
             ['==', 'TRANSFORMER', 'Underground'],
-            ['!in', 'OBJECTID', ...completedIds]
-        ]);
+            ['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
+        ];
+        console.log('🟢 Applying underground filter:', undergroundFilter);
+        map.setFilter('transformers-underground', undergroundFilter);
     } else {
         // No completed transformers, show all underground transformers
         map.setFilter('transformers-underground', ['==', 'TRANSFORMER', 'Underground']);
+        console.log('🟢 Showing all underground transformers');
     }
 }
 
 if (map.getLayer('transformers-overhead')) {
     if (completedIds.length > 0) {
-        map.setFilter('transformers-overhead', [
+        const overheadFilter = [
             'all',
             ['!=', 'TRANSFORMER', 'Underground'],
-            ['!in', 'OBJECTID', ...completedIds]
-        ]);
+            ['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
+        ];
+        console.log('🔵 Applying overhead filter:', overheadFilter);
+        map.setFilter('transformers-overhead', overheadFilter);
     } else {
         // No completed transformers, show all overhead transformers
         map.setFilter('transformers-overhead', ['!=', 'TRANSFORMER', 'Underground']);
+        console.log('🔵 Showing all overhead transformers');
     }
 }
 
 if (map.getLayer('transformer-labels')) {
     if (completedIds.length > 0) {
-        map.setFilter('transformer-labels', ['!in', 'OBJECTID', ...completedIds]);
+        const labelFilter = ['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)];
+        console.log('🏷️ Applying label filter:', labelFilter);
+        map.setFilter('transformer-labels', labelFilter);
     } else {
         // No completed transformers, show all labels
         map.setFilter('transformer-labels', null);
+        console.log('🏷️ Showing all transformer labels');
     }
 }
 
@@ -618,8 +652,6 @@ map.addLayer({
 'type': 'symbol',
 'source': 'transformers',
 'source-layer': 'transformer_bank-2wyyho', 
-// ✅ CORRECTED FILTER PROPERTY AND VALUE
-'filter': ['==', 'TRANSFORME', 'Underground'], 
 'filter': ['==', 'TRANSFORMER', 'Underground'], 
 'minzoom': 16.5,
 'layout': {
