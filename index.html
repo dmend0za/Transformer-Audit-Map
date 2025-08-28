@@ -493,17 +493,25 @@ coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 // Use the LINK field from the data which already contains the complete Fillout URL
 const filloutUrl = properties.LINK || '#';
 
+// Debug: Log the actual values to see what we're working with
+console.log('COLOR value:', JSON.stringify(properties.COLOR));
+console.log('STYLE value:', JSON.stringify(properties.STYLE));
+console.log('COLOR type:', typeof properties.COLOR);
+console.log('STYLE type:', typeof properties.STYLE);
+
 // Helper function to check if a value is not null, undefined, empty string, or just whitespace
 const hasValue = (value) => {
-// Convert to string and trim whitespace, then check if it's meaningful
-const trimmed = String(value || '').trim();
-return trimmed !== '' && 
-       trimmed !== 'null' && 
-       trimmed !== 'undefined' && 
-       trimmed !== 'N/A' && 
-       trimmed !== 'NULL' &&
-       value !== null && 
-       value !== undefined;
+// First check for null/undefined
+if (value === null || value === undefined) {
+    return false;
+}
+
+// Convert to string and trim whitespace
+const trimmed = String(value).trim().toLowerCase();
+
+// Check for various "empty" representations
+const emptyValues = ['', 'null', 'undefined', 'n/a', 'na', 'none', 'empty', '<null>'];
+return !emptyValues.includes(trimmed) && trimmed.length > 0;
 };
 
 // Build popup HTML with conditional fields
@@ -517,11 +525,17 @@ let popupHTML = `
 // Only add COLOR field if it has a value
 if (hasValue(properties.COLOR)) {
     popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
+    console.log('COLOR field added:', properties.COLOR);
+} else {
+    console.log('COLOR field skipped for value:', properties.COLOR);
 }
 
 // Only add STYLE field if it has a value
 if (hasValue(properties.STYLE)) {
     popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
+    console.log('STYLE field added:', properties.STYLE);
+} else {
+    console.log('STYLE field skipped for value:', properties.STYLE);
 }
 
 // Add the audit form link
