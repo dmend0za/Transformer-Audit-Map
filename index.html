@@ -154,20 +154,6 @@ Overhead
 </div>
 <span class="legend-count" id="overhead-count">-</span>
 </div>
-<hr style="margin: 10px 0; border: none; border-top: 1px solid #ddd;">
-<div class="legend-item">
-<div class="status-total">Total Transformers:</div>
-<span class="legend-count status-total" id="total-count">-</span>
-</div>
-<div class="legend-item">
-<div class="status-completed">Completed Audits:</div>
-<span class="legend-count status-completed" id="completed-count">0</span>
-</div>
-<div class="legend-item">
-<div class="status-pending">Pending Audits:</div>
-<span class="legend-count status-pending" id="pending-count">-</span>
-</div>
-<div style="font-size: 12px; color: #666; margin-top: 8px;">
 <div class="legend-item">
 <div>
 <span class="legend-symbol meter"></span>
@@ -176,399 +162,130 @@ Electric Meters
 <span class="legend-count" id="meter-count">-</span>
 </div>
 </div>
-</div>
+
 <div id="unsupported">
-<h2>Map Display Error</h2>
-<p>Sorry, your browser or environment does not support WebGL, which is required to view this map.</p>
+<h2>WebGL Not Supported</h2>
+<p>Your browser does not support WebGL, which is required for this map.</p>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-// Hide the unsupported message by default
-document.getElementById('unsupported').style.display = 'none';
-
-// Check if Mapbox GL is supported in the current browser/environment.
+// Check if WebGL is supported
 if (mapboxgl.supported()) {
-// --- MAPBOX INITIALIZATION ---
-mapboxgl.accessToken = 'pk.eyJ1IjoiZmllbGRzZW5zZSIsImEiOiJjbWMwb2ljY3YwNGFoMnJvaXN5c2xnMnR6In0.wc3C3TrsgsfyLf5ZJqHpnA';
+  // Your Mapbox access token (replace with your actual token)
+  mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN_HERE';
 
-// Initialize the map with a high-quality basemap style.
-const map = new mapboxgl.Map({
-container: 'map', // The ID of the div element to hold the map
-style: 'mapbox://styles/mapbox/streets-v12', // High-quality satellite with street labels
-center: [-77.9153, 35.7218], // Center coordinates for Wilson, NC
-zoom: 13, // Initial zoom level
-failIfMajorPerformanceCaveat: false
-});
+  // Initialize the map
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [-78.1309, 35.7036], // Centered on your coordinates
+    zoom: 12
+  });
 
-// --- MAP LOAD EVENT ---
-// This function runs once the map's style has finished loading.
-map.on('load', () => {
-// Initialize audit status tracking
-let auditStatus = {
-total: 0,
-completed: 0,
-pending: 0,
-underground: 0,
-overhead: 0,
-meters: 0,
-completedTransformers: new Set() // Track completed transformer IDs
-};
+  // Create a popup instance
+  const popup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false
+  });
 
-// Function to update legend counts
-function updateLegendCounts() {
-document.getElementById('total-count').textContent = auditStatus.total;
-document.getElementById('completed-count').textContent = auditStatus.completed;
-document.getElementById('pending-count').textContent = auditStatus.pending;
-document.getElementById('underground-count').textContent = auditStatus.underground;
-document.getElementById('overhead-count').textContent = auditStatus.overhead;
-document.getElementById('meter-count').textContent = auditStatus.meters;
-}
+  // Function to create transformer popup
+  const createTransformerPopup = (e) => {
+    const properties = e.features[0].properties;
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    
+    // Ensure that if the map is zoomed out such that multiple
+    // copies of the feature are visible, the popup appears
+    // over the copy being pointed to.
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+      coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
 
-// Function to count features after map loads
-function countMapFeatures() {
-// Count transformers when layers are loaded
-map.on('sourcedata', (e) => {
-if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-const features = map.querySourceFeatures('transformers', {
-sourceLayer: 'transformer_bank-2wyyho'
-});
+    // Build the fillout URL (adjust this to match your URL structure)
+    const filloutUrl = properties.LINK || '#';
 
-auditStatus.underground = features.filter(f => 
-f.properties.SUBTYPEC_1 === 'Underground Transformer'
-).length;
+    // Build popup HTML with conditional fields
+    let popupHTML = `
+      <h4>Transformer Details</h4>
+      <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+      <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p>
+      <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+      <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
+    `;
 
-auditStatus.overhead = features.filter(f => 
-f.properties.SUBTYPEC_1 !== 'Underground Transformer'
-).length;
+    // Only add STYLE if it exists and has a value
+    if (properties.STYLE && properties.STYLE.trim() !== '') {
+      popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
+    }
 
-auditStatus.total = auditStatus.underground + auditStatus.overhead;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
+    // Only add COLOR if it exists and has a value
+    if (properties.COLOR && properties.COLOR.trim() !== '') {
+      popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
+    }
 
-updateLegendCounts();
-}
+    // Add the link at the end
+    popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
 
-if (e.sourceId === 'meters' && e.isSourceLoaded) {
-const meterFeatures = map.querySourceFeatures('meters', {
-sourceLayer: 'electric_meters-5xjegj'
-});
-auditStatus.meters = meterFeatures.length;
-updateLegendCounts();
-}
-});
-}
+    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+  };
 
-// Function to check audit status from Google Sheets (placeholder for your integration)
-async function checkAuditStatus() {
-// TODO: Replace this with your Google Sheets API call
-// This is where you'll fetch the audit completion status
+  // Function to create meter popup
+  const createMeterPopup = (e) => {
+    const properties = e.features[0].properties;
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+      coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
+    
+    const popupHTML = `
+      <h4>Electric Meter</h4>
+      <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
+      <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
+    `;
+    
+    popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+  };
 
-try {
-// Placeholder for Google Sheets integration
-// const response = await fetch('YOUR_GOOGLE_SHEETS_API_ENDPOINT');
-// const data = await response.json();
+  // When the map loads
+  map.on('load', () => {
+    // Add your data sources and layers here
+    // This is where you would add your GeoJSON sources and create layers
+    
+    // Example of adding interactive layers (adjust layer names to match your actual layers)
+    const interactiveLayers = [
+      'transformers-underground', 
+      'transformers-overhead', 
+      'electric-meters',
+      'transformer-labels',
+      'meter-labels'
+    ];
+    
+    interactiveLayers.forEach(layerId => {
+      map.on('click', layerId, (e) => {
+        if (layerId.includes('transformer')) {
+          createTransformerPopup(e);
+        } else if (layerId.includes('meter')) {
+          createMeterPopup(e);
+        }
+      });
 
-// Example of how to process completed audits:
-// const completedIds = data.filter(row => row.status === 'complete').map(row => row.transformerId);
-// updateCompletedTransformers(completedIds);
+      map.on('mouseenter', layerId, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
 
-console.log('Audit status check - ready for Google Sheets integration');
-} catch (error) {
-console.error('Error checking audit status:', error);
-}
-}
+      map.on('mouseleave', layerId, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    });
+  });
 
-// Function to update completed transformers and hide them from map
-function updateCompletedTransformers(completedIds) {
-auditStatus.completedTransformers = new Set(completedIds);
-auditStatus.completed = completedIds.length;
-auditStatus.pending = auditStatus.total - auditStatus.completed;
-
-// Update transformer layer filters to hide completed ones
-const incompleteFilter = ['!in', 'OBJECTID', ...completedIds];
-
-// Apply filters to hide completed transformers
-map.setFilter('transformers-underground', [
-'all',
-['==', 'SUBTYPEC_1', 'Underground Transformer'],
-incompleteFilter
-]);
-
-map.setFilter('transformers-overhead', [
-'all',
-['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-incompleteFilter
-]);
-
-map.setFilter('transformer-labels', incompleteFilter);
-
-updateLegendCounts();
-}
-
-// Expose functions globally for Google Sheets integration
-window.updateAuditStatus = updateCompletedTransformers;
-window.refreshAuditData = checkAuditStatus;
-// --- ADD TILESET SOURCES ---
-// Using the verified list of Tileset IDs.
-map.addSource('transformers', {
-type: 'vector',
-url: 'mapbox://fieldsense.4w34kdko' 
-});
-
-map.addSource('meters', {
-type: 'vector',
-url: 'mapbox://fieldsense.4hey26iq'
-});
-
-map.addSource('secondary-oh', {
-type: 'vector',
-url: 'mapbox://fieldsense.c53vz8g4'
-});
-
-map.addSource('secondary-ug', {
-type: 'vector',
-url: 'mapbox://fieldsense.2hebp65r'
-});
-
-// --- ADD LAYERS ---
-// Using the verified list of source layer names.
-
-// 1. Underground Feeders Layer (Darker Blue Dashed)
-map.addLayer({
-'id': 'ug-feeders',
-'type': 'line',
-'source': 'secondary-ug',
-'source-layer': 'secondary_UG-0ox1k5',
-'minzoom': 17,
-'layout': { 'line-join': 'round', 'line-cap': 'round' },
-'paint': { 'line-color': '#003366', 'line-width': 2, 'line-dasharray': [2, 2] }
-});
-
-// 2. Overhead Feeders Layer (Red Solid)
-map.addLayer({
-'id': 'oh-feeders',
-'type': 'line',
-'source': 'secondary-oh',
-'source-layer': 'secondary_OH-27459y',
-'minzoom': 17,
-'layout': { 'line-join': 'round', 'line-cap': 'round' },
-'paint': { 'line-color': '#FF0000', 'line-width': 2 }
-});
-
-// 3. Underground Transformers Layer (Light Green Squares)
-map.addLayer({
-'id': 'transformers-underground',
-'type': 'symbol',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
-// ✅ CORRECTED FILTER PROPERTY AND VALUE
-    'filter': ['==', 'TRANSFORME', 'Underground'], 
-    'filter': ['==', 'TRANSFORMER', 'Underground'], 
-'minzoom': 16.5,
-'layout': {
-'text-field': '■', // Unicode square character
-'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-'text-size': 24, 
-'text-allow-overlap': true,
-'text-ignore-placement': true
-},
-'paint': {
-'text-color': '#4CAF50', 
-'text-halo-color': '#000000',
-'text-halo-width': 1.5
-}
-});
-
-// 4. Overhead Transformers Layer (Light Gray Circles)
-map.addLayer({
-'id': 'transformers-overhead',
-'type': 'circle',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
-    'filter': ['!=', 'TRANSFORMER', 'Underground'],
-'minzoom': 16.5,
-'paint': { 
-'circle-color': 'hsl(123, 7%, 85%)',
-'circle-radius': 8,
-'circle-stroke-width': 2, 
-'circle-stroke-color': '#000000'
-}
-});
-// 5. Electric Meters Layer (Bigger Dark Gray with White Stroke)
-map.addLayer({
-'id': 'electric-meters',
-'type': 'circle',
-'source': 'meters',
-'source-layer': 'electric_meters-5xjegj',
-'minzoom': 18,
-'paint': { 
-'circle-color': '#555555', // Dark gray
-'circle-radius': 6, // Bigger than before (was 4)
-'circle-stroke-width': 1, 
-'circle-stroke-color': '#ffffff' // White stroke
-}
-});
-
-// 6. Transformer Labels (appear at high zoom with larger dynamic sizing)
-map.addLayer({
-'id': 'transformer-labels',
-'type': 'symbol',
-'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho',
-'minzoom': 18,
-'layout': {
-'text-field': [
-'format',
-['get', 'OBJECTID'], { 'font-scale': 0.9 },
-'\n', {},
-['get', 'KVA'], { 'font-scale': 0.8 },
-' KVA', { 'font-scale': 0.8 }
-],
-'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-'text-size': [
-'interpolate',
-['linear'],
-['zoom'],
-18, 14,  // At zoom 18, text size is 14 (was 9)
-20, 18,  // At zoom 20, text size is 18 (was 12)
-22, 24   // At zoom 22, text size is 24 (was 16)
-],
-'text-offset': [0, -2.8],
-'text-anchor': 'top',
-'text-allow-overlap': false,
-'text-ignore-placement': false
-},
-'paint': {
-'text-color': '#333333',
-'text-halo-color': '#ffffff',
-'text-halo-width': 2
-}
-});
-
-// 7. Electric Meter Labels (appear at high zoom with larger dynamic sizing)
-map.addLayer({
-'id': 'meter-labels',
-'type': 'symbol',
-'source': 'meters',
-'source-layer': 'electric_meters-5xjegj',
-'minzoom': 19,
-'layout': {
-'text-field': ['get', 'MTRNUM'],
-'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-'text-size': [
-'interpolate',
-['linear'],
-['zoom'],
-19, 12,  // At zoom 19, text size is 12 (was 8)
-21, 16,  // At zoom 21, text size is 16 (was 11)
-22, 20   // At zoom 22, text size is 20 (was 14)
-],
-'text-offset': [0, -2],
-'text-anchor': 'top',
-'text-allow-overlap': false,
-'text-ignore-placement': false
-},
-'paint': {
-'text-color': '#000000', // Black color
-'text-halo-color': '#ffffff',
-'text-halo-width': 2
-}
-});
-
-// --- INTERACTIVITY ---
-const popup = new mapboxgl.Popup({
-closeButton: true,  // Enable close button
-closeOnClick: false, // Don't close when clicking elsewhere on map
-closeOnMove: false   // Don't close when moving the map
-});
-
-const createTransformerPopup = (e) => {
-const properties = e.features[0].properties;
-const coordinates = e.features[0].geometry.coordinates.slice();
-while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-}
-  
-// Use the LINK field from the data which already contains the complete Fillout URL
-const filloutUrl = properties.LINK || '#';
-  
-// ✅ CORRECTED PROPERTY NAMES
-let popupHTML = `
-  <h4>Transformer Details</h4>
-  <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-  <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p>
-  <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-  <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>
-`;
-
-// Only add STYLE if it exists and has a value
-if (properties.STYLE && properties.STYLE.trim() !== '') {
-  popupHTML += `<p><strong>STYLE:</strong> ${properties.STYLE}</p>`;
-}
-
-// Only add COLOR if it exists and has a value
-if (properties.COLOR && properties.COLOR.trim() !== '') {
-  popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
-}
-
-// Add the link at the end
-popupHTML += `<a href="${filloutUrl}" target="_blank">Open Audit Form &rarr;</a>`;
-
-popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-
-const createMeterPopup = (e) => {
-  const properties = e.features[0].properties;
-  const coordinates = e.features[0].geometry.coordinates.slice();
-  
-  while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-  }
-  
-  const popupHTML = `
-    <h4>Electric Meter</h4>
-    <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
-    <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
-  `;
-  
-  popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-};
-
-// Add click listeners for each interactive layer
-const interactiveLayers = [
-'transformers-underground', 
-'transformers-overhead', 
-'electric-meters',
-'transformer-labels',
-'meter-labels'
-];
-interactiveLayers.forEach(layerId => {
-map.on('click', layerId, (e) => {
-if (layerId.includes('transformer')) {
-createTransformerPopup(e);
-} else if (layerId.includes('meter')) {
-createMeterPopup(e);
-}
-});
-
-map.on('mouseenter', layerId, () => {
-map.getCanvas().style.cursor = 'pointer';
-});
-
-map.on('mouseleave', layerId, () => {
-map.getCanvas().style.cursor = '';
-// Don't remove popup on mouseleave - let user interact with it
-});
-});
-});
-
-// Add zoom and rotation controls to the map.
-map.addControl(new mapboxgl.NavigationControl());
+  // Add zoom and rotation controls to the map
+  map.addControl(new mapboxgl.NavigationControl());
 } else {
-// If WebGL is not supported, hide the map and show the error message.
-document.getElementById('map').style.display = 'none';
-document.getElementById('unsupported').style.display = 'flex';
+  // If WebGL is not supported, hide the map and show the error message
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('unsupported').style.display = 'flex';
 }
-});
 </script>
 
 </body>
