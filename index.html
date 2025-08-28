@@ -232,16 +232,17 @@ document.getElementById('overhead-count').textContent = auditStatus.overhead;
 document.getElementById('meter-count').textContent = auditStatus.meters;
 }
 
-// Function to count features after map loads
+// Function to count features after map loads - COUNT ALL TRANSFORMERS REGARDLESS OF ZOOM
 function countMapFeatures() {
 // Count transformers when layers are loaded
 map.on('sourcedata', (e) => {
 if (e.sourceId === 'transformers' && e.isSourceLoaded) {
+    // Use querySourceFeatures to get ALL features, not just visible ones
     const features = map.querySourceFeatures('transformers', {
         sourceLayer: 'transformer_bank-2wyyho'
     });
 
-    console.log('🔍 Total transformer features found:', features.length);
+    console.log('🔍 Total transformer features found (ALL zoom levels):', features.length);
 
     // Debug: Let's see what properties are available
     if (features.length > 0) {
@@ -249,7 +250,7 @@ if (e.sourceId === 'transformers' && e.isSourceLoaded) {
         console.log('🔍 Available property keys:', Object.keys(features[0].properties));
         
         // Show some sample OBJECTID values to help with matching
-        const sampleIds = features.slice(0, 5).map(f => f.properties.OBJECTID);
+        const sampleIds = features.slice(0, 10).map(f => f.properties.OBJECTID);
         console.log('🆔 Sample OBJECTID values:', sampleIds);
         
         // Check if 32891 and 11492 exist in the data
@@ -257,13 +258,19 @@ if (e.sourceId === 'transformers' && e.isSourceLoaded) {
         testIds.forEach(testId => {
             const found = features.find(f => String(f.properties.OBJECTID) === testId);
             if (found) {
-                console.log(`✅ Found transformer ${testId}:`, found.properties);
+                console.log(`✅ Found transformer ${testId}:`, {
+                    OBJECTID: found.properties.OBJECTID,
+                    TRANSFORMER: found.properties.TRANSFORMER,
+                    FEEDERID: found.properties.FEEDERID,
+                    KVA: found.properties.KVA
+                });
             } else {
                 console.log(`❌ Transformer ${testId} NOT found in map data`);
             }
         });
     }
 
+    // Count underground vs overhead transformers from ALL data
     auditStatus.underground = features.filter(f => 
         f.properties.TRANSFORMER === 'Underground'
     ).length;
@@ -272,21 +279,24 @@ if (e.sourceId === 'transformers' && e.isSourceLoaded) {
         f.properties.TRANSFORMER !== 'Underground'
     ).length;
 
-    console.log('📊 Underground transformers:', auditStatus.underground);
-    console.log('📊 Overhead transformers:', auditStatus.overhead);
+    console.log('📊 Underground transformers (TOTAL):', auditStatus.underground);
+    console.log('📊 Overhead transformers (TOTAL):', auditStatus.overhead);
 
     auditStatus.total = auditStatus.underground + auditStatus.overhead;
     auditStatus.pending = auditStatus.total - auditStatus.completed;
+
+    console.log('📊 TOTAL transformers across entire map:', auditStatus.total);
 
     updateLegendCounts();
 }
 
 if (e.sourceId === 'meters' && e.isSourceLoaded) {
+    // Count ALL meters regardless of zoom level
     const meterFeatures = map.querySourceFeatures('meters', {
         sourceLayer: 'electric_meters-5xjegj'
     });
     auditStatus.meters = meterFeatures.length;
-    console.log('📊 Electric meters:', auditStatus.meters);
+    console.log('📊 Electric meters (TOTAL):', auditStatus.meters);
     updateLegendCounts();
 }
 });
