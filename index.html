@@ -489,6 +489,13 @@ if (map.getLayer('transformer-labels')) {
 }
 
 // Hide meters associated with completed transformers
+hideAssociatedMeters(completedIds);
+
+updateLegendCounts();
+console.log('✅ Map updated - completed transformers and associated meters are now hidden');
+}
+
+// Hide meters associated with completed transformers
 // We need to get the FEEDERID from completed transformers and hide meters on the same feeder
 hideAssociatedMeters(completedIds);
 
