@@ -175,6 +175,13 @@ Electric Meters
 </div>
 <span class="legend-count" id="meter-count">-</span>
 </div>
+<div style="margin-top: 10px; padding: 8px; background: rgba(76, 175, 80, 0.1); border-radius: 4px; border-left: 3px solid #4CAF50;">
+<div style="font-size: 11px; color: #2E7D32; font-weight: 600;">🔄 LIVE UPDATES</div>
+<div style="font-size: 10px; color: #2E7D32; margin-top: 2px;">
+Completed audits automatically hidden<br>
+Refreshes every 30 seconds
+</div>
+</div>
 </div>
 </div>
 <div id="unsupported">
@@ -258,56 +265,298 @@ updateLegendCounts();
 });
 }
 
-// Function to check audit status from Google Sheets (placeholder for your integration)
+// Google Sheets configuration
+const SPREADSHEET_ID = '1adtx-0Lj5kVNpc9JRDSnABYwiAxSFzBlfn_y-1A3QKw';
+const API_KEY = 'YOUR_API_KEY_HERE'; // You'll need to replace this with your actual API key
+const SHEET_RANGE = 'Sheet1!A:C'; // Adjust range as needed for your columns
+
+// Function to check audit status from Google Sheets
 async function checkAuditStatus() {
-// TODO: Replace this with your Google Sheets API call
-// This is where you'll fetch the audit completion status
+console.log('🔄 Checking audit status from Google Sheets...');
 
 try {
-// Placeholder for Google Sheets integration
-// const response = await fetch('YOUR_GOOGLE_SHEETS_API_ENDPOINT');
-// const data = await response.json();
+// Method 1: Try using CSV export (no API key required)
+await checkAuditStatusViaCsv();
+} catch (csvError) {
+console.log('CSV method failed, trying API method...', csvError);
+try {
+// Method 2: Fallback to Sheets API (requires API key)
+await checkAuditStatusViaApi();
+} catch (apiError) {
+console.error('❌ Both CSV and API methods failed:', apiError);
+// Show user-friendly message
+showApiKeyNeededMessage();
+}
+}
+}
 
-// Example of how to process completed audits:
-// const completedIds = data.filter(row => row.status === 'complete').map(row => row.transformerId);
-// updateCompletedTransformers(completedIds);
+// Method 1: Using CSV export (simpler, no API key needed)
+async function checkAuditStatusViaCsv() {
+const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`;
+console.log('📊 Fetching CSV from:', csvUrl);
 
-console.log('Audit status check - ready for Google Sheets integration');
-} catch (error) {
-console.error('Error checking audit status:', error);
+const response = await fetch(csvUrl, {
+mode: 'cors'
+});
+
+if (!response.ok) {
+throw new Error(`CSV fetch failed: ${response.status}`);
+}
+
+const csvText = await response.text();
+console.log('✅ CSV data received, length:', csvText.length);
+
+// Parse CSV using simple parsing (you could use a library like PapaParse for more robust parsing)
+const rows = csvText.split('\n').map(row => row.split(',').map(cell => cell.trim().replace(/"/g, '')));
+const headers = rows[0];
+console.log('📋 Headers found:', headers);
+
+// Find the columns we need
+const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
+const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+if (transformerIdIndex === -1 || statusIndex === -1) {
+throw new Error('Required columns (transformer_id and status) not found in spreadsheet');
+}
+
+console.log(`🔍 Using columns: transformer_id=${transformerIdIndex}, status=${statusIndex}`);
+
+// Process the data
+const completedTransformers = [];
+for (let i = 1; i < rows.length; i++) {
+const row = rows[i];
+if (row.length > Math.max(transformerIdIndex, statusIndex)) {
+const transformerId = row[transformerIdIndex];
+const status = row[statusIndex];
+
+console.log(`📝 Row ${i}: ID=${transformerId}, Status=${status}`);
+
+if (status && status.toLowerCase() === 'complete' && transformerId) {
+completedTransformers.push(transformerId);
+}
+}
+}
+
+console.log('✅ Completed transformers found:', completedTransformers);
+updateCompletedTransformers(completedTransformers);
+}
+
+// Method 2: Using Sheets API v4 (requires API key)
+async function checkAuditStatusViaApi() {
+if (API_KEY === 'YOUR_API_KEY_HERE') {
+throw new Error('API key not configured');
+}
+
+const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}?key=${API_KEY}`;
+console.log('🔑 Fetching via API:', apiUrl);
+
+const response = await fetch(apiUrl);
+if (!response.ok) {
+throw new Error(`API request failed: ${response.status}`);
+}
+
+const data = await response.json();
+const rows = data.values || [];
+
+if (rows.length === 0) {
+console.log('📭 No data found in spreadsheet');
+return;
+}
+
+const headers = rows[0];
+const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
+const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
+
+if (transformerIdIndex === -1 || statusIndex === -1) {
+throw new Error('Required columns not found');
+}
+
+const completedTransformers = [];
+for (let i = 1; i < rows.length; i++) {
+const row = rows[i];
+if (row.length > Math.max(transformerIdIndex, statusIndex)) {
+const transformerId = row[transformerIdIndex];
+const status = row[statusIndex];
+
+if (status && status.toLowerCase() === 'complete' && transformerId) {
+completedTransformers.push(transformerId);
+}
+}
+}
+
+console.log('✅ Completed transformers found via API:', completedTransformers);
+updateCompletedTransformers(completedTransformers);
+}
+
+// Show message when API key is needed
+function showApiKeyNeededMessage() {
+const message = `
+⚠️ Google Sheets Integration Setup Needed
+
+To enable automatic hiding of completed audits, you need to:
+
+1. Get a Google Sheets API key from Google Cloud Console
+2. Replace 'YOUR_API_KEY_HERE' in the code with your actual API key
+3. Make sure your spreadsheet is publicly viewable
+
+Current status: Using demo mode (no audits will be hidden)
+`;
+
+console.log(message);
+
+// Optionally show this to the user in the UI
+if (confirm('Google Sheets integration needs setup. Would you like to see the setup instructions?')) {
+alert(message);
 }
 }
 
-// Function to update completed transformers and hide them from map
+// Function to update completed transformers and hide them from map along with associated meters
 function updateCompletedTransformers(completedIds) {
+console.log('🎯 Updating completed transformers:', completedIds);
+
 auditStatus.completedTransformers = new Set(completedIds);
 auditStatus.completed = completedIds.length;
 auditStatus.pending = auditStatus.total - auditStatus.completed;
 
-// Update transformer layer filters to hide completed ones
-const incompleteFilter = ['!in', 'OBJECTID', ...completedIds];
+// Create filter to hide completed transformers
+const incompleteTransformerFilter = completedIds.length > 0 ? 
+    ['!in', 'OBJECTID', ...completedIds] : 
+    true; // Show all if no completed transformers
+
+console.log('🔍 Applying transformer filter:', incompleteTransformerFilter);
 
 // Apply filters to hide completed transformers
-map.setFilter('transformers-underground', [
-'all',
-['==', 'SUBTYPEC_1', 'Underground Transformer'],
-incompleteFilter
-]);
-
-map.setFilter('transformers-overhead', [
-'all',
-['!=', 'SUBTYPEC_1', 'Underground Transformer'],
-incompleteFilter
-]);
-
-map.setFilter('transformer-labels', incompleteFilter);
-
-updateLegendCounts();
+if (map.getLayer('transformers-underground')) {
+    map.setFilter('transformers-underground', [
+        'all',
+        ['==', 'TRANSFORMER', 'Underground'],
+        incompleteTransformerFilter
+    ]);
 }
 
-// Expose functions globally for Google Sheets integration
+if (map.getLayer('transformers-overhead')) {
+    map.setFilter('transformers-overhead', [
+        'all',
+        ['!=', 'TRANSFORMER', 'Underground'],
+        incompleteTransformerFilter
+    ]);
+}
+
+if (map.getLayer('transformer-labels')) {
+    map.setFilter('transformer-labels', incompleteTransformerFilter);
+}
+
+// Hide meters associated with completed transformers
+// We need to get the FEEDERID from completed transformers and hide meters on the same feeder
+hideAssociatedMeters(completedIds);
+
+updateLegendCounts();
+console.log('✅ Map updated - completed transformers and associated meters are now hidden');
+}
+
+// Function to hide meters associated with completed transformers
+async function hideAssociatedMeters(completedTransformerIds) {
+if (completedTransformerIds.length === 0) {
+    console.log('📍 No completed transformers - showing all meters');
+    // Show all meters if no transformers are completed
+    if (map.getLayer('electric-meters')) {
+        map.setFilter('electric-meters', null);
+    }
+    if (map.getLayer('meter-labels')) {
+        map.setFilter('meter-labels', null);
+    }
+    return;
+}
+
+try {
+    console.log('🔍 Finding feeders for completed transformers...');
+    
+    // Query transformer features to get their FEEDERID values
+    const completedFeederIds = new Set();
+    
+    // Wait for the source to be loaded
+    if (map.isSourceLoaded('transformers')) {
+        const transformerFeatures = map.querySourceFeatures('transformers', {
+            sourceLayer: 'transformer_bank-2wyyho'
+        });
+
+        // Find FEEDERID values for completed transformers
+        transformerFeatures.forEach(feature => {
+            const objectId = feature.properties.OBJECTID;
+            const feederId = feature.properties.FEEDERID;
+            
+            if (completedTransformerIds.includes(String(objectId)) && feederId) {
+                completedFeederIds.add(feederId);
+                console.log(`📡 Transformer ${objectId} on feeder ${feederId} is complete`);
+            }
+        });
+
+        console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
+
+        // Create filter to hide meters on completed feeders
+        if (completedFeederIds.size > 0) {
+            const meterFilter = ['!in', 'FEEDERID', ...Array.from(completedFeederIds)];
+            
+            console.log('🔍 Applying meter filter:', meterFilter);
+
+            // Apply filter to hide meters on completed feeders
+            if (map.getLayer('electric-meters')) {
+                map.setFilter('electric-meters', meterFilter);
+            }
+            if (map.getLayer('meter-labels')) {
+                map.setFilter('meter-labels', meterFilter);
+            }
+        } else {
+            console.log('📍 No valid feeder IDs found for completed transformers');
+        }
+    } else {
+        console.log('⏳ Transformer source not yet loaded, will retry when available');
+        // Retry when source becomes available
+        map.once('sourcedata', (e) => {
+            if (e.sourceId === 'transformers' && e.isSourceLoaded) {
+                hideAssociatedMeters(completedTransformerIds);
+            }
+        });
+    }
+} catch (error) {
+    console.error('❌ Error hiding associated meters:', error);
+}
+}
+
+// Start initial audit status check and set up periodic refresh
+console.log('🚀 Initializing audit status tracking...');
+countMapFeatures();
+
+// Initial check
+checkAuditStatus();
+
+// Set up periodic refresh every 30 seconds
+const refreshInterval = setInterval(() => {
+    console.log('🔄 Periodic audit status refresh...');
+    checkAuditStatus();
+}, 30000);
+
+// Also refresh when the user clicks on the map (manual refresh)
+map.on('click', () => {
+    // Debounce to avoid too many calls
+    clearTimeout(window.auditRefreshTimeout);
+    window.auditRefreshTimeout = setTimeout(() => {
+        console.log('🖱️ Manual refresh triggered by map click');
+        checkAuditStatus();
+    }, 1000);
+});
+
+// Expose functions globally for manual control
 window.updateAuditStatus = updateCompletedTransformers;
 window.refreshAuditData = checkAuditStatus;
+window.stopAuditRefresh = () => {
+    clearInterval(refreshInterval);
+    console.log('⏹️ Audit refresh stopped');
+};
+
+console.log('✅ Audit status tracking initialized');
+console.log('💡 Available functions: window.refreshAuditData(), window.stopAuditRefresh()');
+
 // --- ADD TILESET SOURCES ---
 // Using the verified list of Tileset IDs.
 map.addSource('transformers', {
