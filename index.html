@@ -418,32 +418,40 @@ auditStatus.completedTransformers = new Set(completedIds);
 auditStatus.completed = completedIds.length;
 auditStatus.pending = auditStatus.total - auditStatus.completed;
 
-// Create filter to hide completed transformers
-const incompleteTransformerFilter = completedIds.length > 0 ? 
-    ['!in', 'OBJECTID', ...completedIds] : 
-    true; // Show all if no completed transformers
-
-console.log('🔍 Applying transformer filter:', incompleteTransformerFilter);
-
 // Apply filters to hide completed transformers
 if (map.getLayer('transformers-underground')) {
-    map.setFilter('transformers-underground', [
-        'all',
-        ['==', 'TRANSFORMER', 'Underground'],
-        incompleteTransformerFilter
-    ]);
+    if (completedIds.length > 0) {
+        map.setFilter('transformers-underground', [
+            'all',
+            ['==', 'TRANSFORMER', 'Underground'],
+            ['!in', 'OBJECTID', ...completedIds]
+        ]);
+    } else {
+        // No completed transformers, show all underground transformers
+        map.setFilter('transformers-underground', ['==', 'TRANSFORMER', 'Underground']);
+    }
 }
 
 if (map.getLayer('transformers-overhead')) {
-    map.setFilter('transformers-overhead', [
-        'all',
-        ['!=', 'TRANSFORMER', 'Underground'],
-        incompleteTransformerFilter
-    ]);
+    if (completedIds.length > 0) {
+        map.setFilter('transformers-overhead', [
+            'all',
+            ['!=', 'TRANSFORMER', 'Underground'],
+            ['!in', 'OBJECTID', ...completedIds]
+        ]);
+    } else {
+        // No completed transformers, show all overhead transformers
+        map.setFilter('transformers-overhead', ['!=', 'TRANSFORMER', 'Underground']);
+    }
 }
 
 if (map.getLayer('transformer-labels')) {
-    map.setFilter('transformer-labels', incompleteTransformerFilter);
+    if (completedIds.length > 0) {
+        map.setFilter('transformer-labels', ['!in', 'OBJECTID', ...completedIds]);
+    } else {
+        // No completed transformers, show all labels
+        map.setFilter('transformer-labels', null);
+    }
 }
 
 // Hide meters associated with completed transformers
