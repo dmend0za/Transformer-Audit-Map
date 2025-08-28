@@ -345,7 +345,7 @@ const headers = rows[0];
 console.log('📋 Headers found:', headers);
 
 // Find the columns we need
-const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id') || h.toLowerCase().includes('id'));
+const transformerIdIndex = headers.findIndex(h => h.toLowerCase().includes('transformer_id'));
 const statusIndex = headers.findIndex(h => h.toLowerCase().includes('status'));
 
 if (transformerIdIndex === -1 || statusIndex === -1) {
