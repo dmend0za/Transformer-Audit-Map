@@ -436,15 +436,63 @@ console.log('   - Total:', rawCounts.totalTransformers);
 console.log('   - Completed:', auditStatus.completed);
 console.log('   - Pending:', rawCounts.totalTransformers - auditStatus.completed);
 
-// Apply filters to hide completed transformers
+// DEBUG: Let's examine the actual data to find mismatches
+if (completedIds.length > 0 && map.isSourceLoaded('transformers')) {
+console.log('🔍 DEBUG: Examining transformer data for matching issues...');
+
+const transformerFeatures = map.querySourceFeatures('transformers', {
+sourceLayer: 'transformer_bank-2wyyho'
+});
+
+// Show sample transformer IDs and their types
+console.log('📋 Sample transformer OBJECTID values from tileset:');
+transformerFeatures.slice(0, 10).forEach(feature => {
+const id = feature.properties.OBJECTID;
+console.log(`   - ID: "${id}" (type: ${typeof id})`);
+});
+
+console.log('📋 Completed IDs from spreadsheet:');
+completedIds.forEach(id => {
+console.log(`   - ID: "${id}" (type: ${typeof id})`);
+});
+
+// Check for exact matches
+const matches = [];
+const misses = [];
+completedIds.forEach(completedId => {
+const found = transformerFeatures.some(feature => 
+String(feature.properties.OBJECTID) === String(completedId)
+);
+if (found) {
+matches.push(completedId);
+} else {
+misses.push(completedId);
+}
+});
+
+console.log('✅ Matching IDs (should be hidden):', matches);
+console.log('❌ Non-matching IDs (check data format):', misses);
+
+// Show available property names in case OBJECTID is wrong
+if (transformerFeatures.length > 0) {
+console.log('🗂️ Available transformer properties:', Object.keys(transformerFeatures[0].properties));
+}
+}
+
+// Apply filters to hide completed transformers with corrected syntax
 if (map.getLayer('transformers-underground')) {
 if (completedIds.length > 0) {
+// Create proper Mapbox filter: ['all', condition1, condition2]
+// where condition2 is ['!in', ['get', 'OBJECTID'], 'id1', 'id2', 'id3']
+const notInFilter = ['!in', ['get', 'OBJECTID']];
+completedIds.forEach(id => notInFilter.push(String(id)));
+    
 const undergroundFilter = [
 'all',
 ['==', 'TRANSFORMER', 'Underground'],
-['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
+notInFilter
 ];
-console.log('🟢 Applying underground filter:', undergroundFilter);
+console.log('🟢 Applying underground filter:', JSON.stringify(undergroundFilter));
 map.setFilter('transformers-underground', undergroundFilter);
 } else {
 map.setFilter('transformers-underground', ['==', 'TRANSFORMER', 'Underground']);
@@ -454,12 +502,15 @@ console.log('🟢 Showing all underground transformers');
 
 if (map.getLayer('transformers-overhead')) {
 if (completedIds.length > 0) {
+const notInFilter = ['!in', ['get', 'OBJECTID']];
+completedIds.forEach(id => notInFilter.push(String(id)));
+
 const overheadFilter = [
 'all',
 ['!=', 'TRANSFORMER', 'Underground'],
-['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)]
+notInFilter
 ];
-console.log('🔵 Applying overhead filter:', overheadFilter);
+console.log('🔵 Applying overhead filter:', JSON.stringify(overheadFilter));
 map.setFilter('transformers-overhead', overheadFilter);
 } else {
 map.setFilter('transformers-overhead', ['!=', 'TRANSFORMER', 'Underground']);
@@ -469,9 +520,11 @@ console.log('🔵 Showing all overhead transformers');
 
 if (map.getLayer('transformer-labels')) {
 if (completedIds.length > 0) {
-const labelFilter = ['!in', ['to-string', ['get', 'OBJECTID']], ...completedIds.map(String)];
-console.log('🏷️ Applying label filter:', labelFilter);
-map.setFilter('transformer-labels', labelFilter);
+const notInFilter = ['!in', ['get', 'OBJECTID']];
+completedIds.forEach(id => notInFilter.push(String(id)));
+
+console.log('🏷️ Applying label filter:', JSON.stringify(notInFilter));
+map.setFilter('transformer-labels', notInFilter);
 } else {
 map.setFilter('transformer-labels', null);
 console.log('🏷️ Showing all transformer labels');
@@ -523,8 +576,9 @@ console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
 
 // Create filter to hide meters on completed feeders
 if (completedFeederIds.size > 0) {
-const meterFilter = ['!in', 'FEEDERID', ...Array.from(completedFeederIds)];
-console.log('🔍 Applying meter filter:', meterFilter);
+const meterFilter = ['!in', 'FEEDERID'];
+Array.from(completedFeederIds).forEach(feederId => meterFilter.push(feederId));
+console.log('🔍 Applying meter filter:', JSON.stringify(meterFilter));
 
 if (map.getLayer('electric-meters')) {
 map.setFilter('electric-meters', meterFilter);
@@ -578,6 +632,25 @@ window.refreshAuditData = checkAuditStatus;
 window.stopAuditRefresh = () => {
 clearInterval(refreshInterval);
 console.log('⏹️ Audit refresh stopped');
+};
+
+// DEBUG function to test filtering with known transformer IDs
+window.testFilter = (testIds) => {
+console.log('🧪 Testing filter with IDs:', testIds);
+updateCompletedTransformers(testIds);
+};
+
+// DEBUG function to show all transformer IDs in the current view
+window.showTransformerIds = () => {
+if (map.isSourceLoaded('transformers')) {
+const features = map.queryRenderedFeatures(null, {
+layers: ['transformers-underground', 'transformers-overhead']
+});
+console.log('👀 Currently visible transformer IDs:');
+features.forEach(feature => {
+console.log(`   - ID: ${feature.properties.OBJECTID} (Type: ${feature.properties.TRANSFORMER})`);
+});
+}
 };
 
 console.log('✅ Audit status tracking initialized');
