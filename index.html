@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Transformer Audit Map</title>
-<!-- Mapbox GL JS CSS -->
 <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-<!-- Mapbox GL JS -->
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 <style>
 /* Basic styling for the body and map container */
@@ -66,12 +64,6 @@ background-color: #4CAF50;
 
 .legend-symbol.overhead {
 background-color: hsl(123, 7%, 85%);
-border-radius: 50%;
-}
-
-.legend-symbol.meter {
-background-color: #555555;
-border: 1px solid #fff;
 border-radius: 50%;
 }
 
@@ -168,13 +160,6 @@ Overhead
 <span class="legend-count status-pending" id="pending-count">-</span>
 </div>
 <div style="font-size: 12px; color: #666; margin-top: 8px;">
-<div class="legend-item">
-<div>
-<span class="legend-symbol meter"></span>
-Electric Meters
-</div>
-<span class="legend-count" id="meter-count">-</span>
-</div>
 <div style="margin-top: 10px; padding: 8px; background: rgba(76, 175, 80, 0.1); border-radius: 4px; border-left: 3px solid #4CAF50;">
 <div style="font-size: 11px; color: #2E7D32; font-weight: 600;">🔄 LIVE UPDATES</div>
 <div style="font-size: 10px; color: #2E7D32; margin-top: 2px;">
@@ -240,7 +225,7 @@ function updateLegendCounts() {
 document.getElementById('total-count').textContent = rawCounts.totalTransformers;
 document.getElementById('underground-count').textContent = rawCounts.undergroundTransformers;
 document.getElementById('overhead-count').textContent = rawCounts.overheadTransformers;
-document.getElementById('meter-count').textContent = rawCounts.totalMeters;
+// LINE REMOVED: The line updating the meter count was here.
 
 // Update audit status based on raw counts
 document.getElementById('completed-count').textContent = auditStatus.completed;
@@ -264,11 +249,11 @@ console.log('🔍 Total transformer features found:', features.length);
 if (features.length > 0) {
 console.log('📋 Sample transformer properties:', features[0].properties);
 
-rawCounts.undergroundTransformers = features.filter(f => 
+rawCounts.undergroundTransformers = features.filter(f => 
 f.properties.TRANSFORMER === 'Underground'
 ).length;
 
-rawCounts.overheadTransformers = features.filter(f => 
+rawCounts.overheadTransformers = features.filter(f => 
 f.properties.TRANSFORMER !== 'Underground'
 ).length;
 
@@ -374,12 +359,12 @@ const headers = rows[0];
 console.log('📋 Headers found:', headers);
 
 // Find the columns we need (more flexible matching)
-const transformerIdIndex = headers.findIndex(h => 
+const transformerIdIndex = headers.findIndex(h => 
 h.toLowerCase().includes('transformer') && h.toLowerCase().includes('id') ||
 h.toLowerCase().includes('objectid') ||
 h.toLowerCase() === 'id'
 );
-const statusIndex = headers.findIndex(h => 
+const statusIndex = headers.findIndex(h => 
 h.toLowerCase().includes('status') ||
 h.toLowerCase().includes('complete') ||
 h.toLowerCase().includes('audit')
@@ -405,7 +390,7 @@ if (transformerId && transformerId.trim() !== '') {
 console.log(`📝 Row ${i}: ID=${transformerId}, Status=${status}`);
 
 if (status && (
-status.toLowerCase().includes('complete') || 
+status.toLowerCase().includes('complete') || 
 status.toLowerCase().includes('done') ||
 status.toLowerCase() === 'finished'
 )) {
@@ -432,9 +417,9 @@ auditStatus.completedTransformers = new Set(completedIds.map(id => String(id)));
 auditStatus.completed = completedIds.length;
 
 console.log('📊 Audit Status Update:');
-console.log('   - Total:', rawCounts.totalTransformers);
-console.log('   - Completed:', auditStatus.completed);
-console.log('   - Pending:', rawCounts.totalTransformers - auditStatus.completed);
+console.log('   - Total:', rawCounts.totalTransformers);
+console.log('   - Completed:', auditStatus.completed);
+console.log('   - Pending:', rawCounts.totalTransformers - auditStatus.completed);
 
 // Wait for transformer source to be fully loaded before applying filters
 if (!map.isSourceLoaded('transformers')) {
@@ -462,19 +447,19 @@ console.log('📊 Total features available for filtering:', transformerFeatures.
 console.log('📋 Sample transformer OBJECTID values from tileset:');
 transformerFeatures.slice(0, 10).forEach(feature => {
 const id = feature.properties.OBJECTID;
-console.log(`   - ID: "${id}" (type: ${typeof id})`);
+console.log(`   - ID: "${id}" (type: ${typeof id})`);
 });
 
 console.log('📋 Completed IDs from spreadsheet:');
 completedIds.forEach(id => {
-console.log(`   - ID: "${id}" (type: ${typeof id})`);
+console.log(`   - ID: "${id}" (type: ${typeof id})`);
 });
 
 // Check for exact matches
 const matches = [];
 const misses = [];
 completedIds.forEach(completedId => {
-const found = transformerFeatures.some(feature => 
+const found = transformerFeatures.some(feature => 
 String(feature.properties.OBJECTID) === String(completedId)
 );
 if (found) {
@@ -654,7 +639,7 @@ layers: ['transformers-underground', 'transformers-overhead']
 });
 console.log('👀 Currently visible transformer IDs:');
 features.forEach(feature => {
-console.log(`   - ID: ${feature.properties.OBJECTID} (Type: ${feature.properties.TRANSFORMER})`);
+console.log(`   - ID: ${feature.properties.OBJECTID} (Type: ${feature.properties.TRANSFORMER})`);
 });
 }
 };
@@ -665,7 +650,7 @@ console.log('💡 Available functions: window.refreshAuditData(), window.stopAud
 // --- ADD TILESET SOURCES ---
 map.addSource('transformers', {
 type: 'vector',
-url: 'mapbox://fieldsense.4w34kdko' 
+url: 'mapbox://fieldsense.4w34kdko' 
 });
 
 map.addSource('meters', {
@@ -712,18 +697,18 @@ map.addLayer({
 'id': 'transformers-underground',
 'type': 'symbol',
 'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
-'filter': ['==', 'TRANSFORMER', 'Underground'], 
+'source-layer': 'transformer_bank-2wyyho', 
+'filter': ['==', 'TRANSFORMER', 'Underground'], 
 'minzoom': 16.5,
 'layout': {
 'text-field': '■',
 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-'text-size': 24, 
+'text-size': 24, 
 'text-allow-overlap': true,
 'text-ignore-placement': true
 },
 'paint': {
-'text-color': '#4CAF50', 
+'text-color': '#4CAF50', 
 'text-halo-color': '#000000',
 'text-halo-width': 1.5
 }
@@ -734,13 +719,13 @@ map.addLayer({
 'id': 'transformers-overhead',
 'type': 'circle',
 'source': 'transformers',
-'source-layer': 'transformer_bank-2wyyho', 
+'source-layer': 'transformer_bank-2wyyho', 
 'filter': ['!=', 'TRANSFORMER', 'Underground'],
 'minzoom': 16.5,
-'paint': { 
+'paint': { 
 'circle-color': 'hsl(123, 7%, 85%)',
 'circle-radius': 8,
-'circle-stroke-width': 2, 
+'circle-stroke-width': 2, 
 'circle-stroke-color': '#000000'
 }
 });
@@ -752,10 +737,10 @@ map.addLayer({
 'source': 'meters',
 'source-layer': 'electric_meters-5xjegj',
 'minzoom': 18,
-'paint': { 
+'paint': { 
 'circle-color': '#555555',
 'circle-radius': 6,
-'circle-stroke-width': 1, 
+'circle-stroke-width': 1, 
 'circle-stroke-color': '#ffffff'
 }
 });
@@ -852,11 +837,11 @@ return !emptyValues.includes(trimmed) && trimmed.length > 0;
 };
 
 let popupHTML = `
-     <h4>Transformer Details</h4>
-     <p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
-     <p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
-     <p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
-     <p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>`;
+<h4>Transformer Details</h4>
+<p><strong>ID:</strong> ${properties.OBJECTID || 'N/A'}</p>
+<p><strong>FEEDER:</strong> ${properties.FEEDERID || 'N/A'}</p> 
+<p><strong>KVA:</strong> ${properties.KVA || 'N/A'}</p>
+<p><strong>TYPE:</strong> ${properties.TRANSFORMER || 'N/A'}</p>`;
 
 if (hasValue(properties.COLOR)) {
 popupHTML += `<p><strong>COLOR:</strong> ${properties.COLOR}</p>`;
@@ -878,17 +863,17 @@ while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
 coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
 }
 const popupHTML = `
-                     <h4>Electric Meter</h4>
-                     <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
-                     <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
-                 `;
+                     <h4>Electric Meter</h4>
+                     <p><strong>Meter Number:</strong> ${properties.MTRNUM || 'N/A'}</p>
+                     <p><strong>Feeder:</strong> ${properties.FEEDERID || 'N/A'}</p>
+                 `;
 popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
 };
 
 // Add click listeners for each interactive layer
 const interactiveLayers = [
-'transformers-underground', 
-'transformers-overhead', 
+'transformers-underground', 
+'transformers-overhead', 
 'electric-meters',
 'transformer-labels',
 'meter-labels'
@@ -915,6 +900,22 @@ map.getCanvas().style.cursor = '';
 
 // Add zoom and rotation controls to the map.
 map.addControl(new mapboxgl.NavigationControl());
+
+// --- SECTION ADDED ---
+// Add geolocate control to the map for GPS functionality.
+map.addControl(
+new mapboxgl.GeolocateControl({
+positionOptions: {
+enableHighAccuracy: true
+},
+// When active the map will receive updates to the device's location as it changes.
+trackUserLocation: true,
+// Draw an arrow next to the location dot to indicate which direction the device is heading.
+showUserHeading: true
+})
+);
+// --- END SECTION ADDED ---
+
 
 } else {
 // If WebGL is not supported, hide the map and show the error message.
