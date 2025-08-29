@@ -496,12 +496,14 @@ console.log('🗂️ Available transformer properties:', Object.keys(transformer
 // Apply filters to hide completed transformers with corrected syntax
 if (map.getLayer('transformers-underground')) {
 if (completedIds.length > 0) {
-// Use the proper !in syntax - the issue was array nesting before
+// Manually build the filter array to avoid concat issues
 const undergroundFilter = [
 'all',
 ['==', 'TRANSFORMER', 'Underground'],
-['!in', ['get', 'OBJECTID']].concat(completedIds.map(String))
+['!in', ['get', 'OBJECTID']]
 ];
+// Add each ID individually to avoid array nesting
+completedIds.forEach(id => undergroundFilter[2].push(String(id)));
 console.log('🟢 Applying underground filter:', JSON.stringify(undergroundFilter));
 map.setFilter('transformers-underground', undergroundFilter);
 } else {
@@ -515,8 +517,9 @@ if (completedIds.length > 0) {
 const overheadFilter = [
 'all',
 ['!=', 'TRANSFORMER', 'Underground'],
-['!in', ['get', 'OBJECTID']].concat(completedIds.map(String))
+['!in', ['get', 'OBJECTID']]
 ];
+completedIds.forEach(id => overheadFilter[2].push(String(id)));
 console.log('🔵 Applying overhead filter:', JSON.stringify(overheadFilter));
 map.setFilter('transformers-overhead', overheadFilter);
 } else {
@@ -527,7 +530,8 @@ console.log('🔵 Showing all overhead transformers');
 
 if (map.getLayer('transformer-labels')) {
 if (completedIds.length > 0) {
-const labelFilter = ['!in', ['get', 'OBJECTID']].concat(completedIds.map(String));
+const labelFilter = ['!in', ['get', 'OBJECTID']];
+completedIds.forEach(id => labelFilter.push(String(id)));
 console.log('🏷️ Applying label filter:', JSON.stringify(labelFilter));
 map.setFilter('transformer-labels', labelFilter);
 } else {
@@ -581,8 +585,8 @@ console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
 
 // Create filter to hide meters on completed feeders
 if (completedFeederIds.size > 0) {
-const feederArray = Array.from(completedFeederIds);
-const meterFilter = ['!in', 'FEEDERID'].concat(feederArray);
+const meterFilter = ['!in', 'FEEDERID'];
+Array.from(completedFeederIds).forEach(feederId => meterFilter.push(feederId));
 console.log('🔍 Applying meter filter:', JSON.stringify(meterFilter));
 
 if (map.getLayer('electric-meters')) {
