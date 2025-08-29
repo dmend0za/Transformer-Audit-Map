@@ -225,7 +225,6 @@ function updateLegendCounts() {
 document.getElementById('total-count').textContent = rawCounts.totalTransformers;
 document.getElementById('underground-count').textContent = rawCounts.undergroundTransformers;
 document.getElementById('overhead-count').textContent = rawCounts.overheadTransformers;
-// LINE REMOVED: The line updating the meter count was here.
 
 // Update audit status based on raw counts
 document.getElementById('completed-count').textContent = auditStatus.completed;
@@ -522,76 +521,86 @@ console.log('🏷️ Showing all transformer labels');
 }
 }
 
-// Hide meters associated with completed transformers
-hideAssociatedMeters(completedIds);
+// Hide meters and feeders associated with completed transformers
+hideAssociatedAssets(completedIds);
 
 updateLegendCounts();
-console.log('✅ Map updated - completed transformers and associated meters are now hidden');
+console.log('✅ Map updated - completed transformers and associated assets are now hidden');
 }
 
-// Function to hide meters associated with completed transformers
-async function hideAssociatedMeters(completedTransformerIds) {
-if (completedTransformerIds.length === 0) {
-console.log('📍 No completed transformers - showing all meters');
-if (map.getLayer('electric-meters')) {
-map.setFilter('electric-meters', null);
-}
-if (map.getLayer('meter-labels')) {
-map.setFilter('meter-labels', null);
-}
-return;
+
+// --- FUNCTION MODIFIED ---
+// This function now hides meters AND feeders associated with completed transformers.
+async function hideAssociatedAssets(completedTransformerIds) {
+    const layersToFilter = [
+        'electric-meters', 
+        'meter-labels', 
+        'ug-feeders', 
+        'oh-feeders'
+    ];
+
+    // If there are no completed transformers, ensure all associated assets are visible.
+    if (completedTransformerIds.length === 0) {
+        console.log('📍 No completed transformers - showing all associated assets.');
+        layersToFilter.forEach(layerId => {
+            if (map.getLayer(layerId)) {
+                map.setFilter(layerId, null);
+            }
+        });
+        return;
+    }
+
+    try {
+        console.log('🔍 Finding associated assets for completed transformers...');
+        const completedFeederIds = new Set();
+
+        // Ensure the transformer source is loaded before querying it.
+        if (map.isSourceLoaded('transformers')) {
+            const transformerFeatures = map.querySourceFeatures('transformers', {
+                sourceLayer: 'transformer_bank-2wyyho'
+            });
+
+            // Find the FEEDERID for each completed transformer.
+            transformerFeatures.forEach(feature => {
+                const objectId = String(feature.properties.OBJECTID);
+                const feederId = feature.properties.FEEDERID;
+
+                if (completedTransformerIds.includes(objectId) && feederId) {
+                    completedFeederIds.add(feederId);
+                }
+            });
+
+            console.log('🎯 Feeder IDs associated with completed audits:', Array.from(completedFeederIds));
+
+            // Create a filter to hide any asset on a completed feeder line.
+            if (completedFeederIds.size > 0) {
+                // The filter means: "show features where the FEEDERID is NOT IN our list of completed feeder IDs".
+                const assetFilter = ['!in', 'FEEDERID', ...Array.from(completedFeederIds)];
+                
+                console.log('🔍 Applying filter to associated assets:', JSON.stringify(assetFilter));
+
+                layersToFilter.forEach(layerId => {
+                    if (map.getLayer(layerId)) {
+                        map.setFilter(layerId, assetFilter);
+                    }
+                });
+            } else {
+                console.log('🤷 No valid FEEDERIDs found for completed transformers. No assets to hide.');
+            }
+        } else {
+            // If the source isn't loaded, wait for it and then try again.
+            console.log('⏳ Transformer source not yet loaded, will retry hiding assets when available.');
+            map.once('sourcedata', (e) => {
+                if (e.sourceId === 'transformers' && e.isSourceLoaded) {
+                    hideAssociatedAssets(completedTransformerIds); // Retry the function call
+                }
+            });
+        }
+    } catch (error) {
+        console.error('❌ Error hiding associated assets:', error);
+    }
 }
 
-try {
-console.log('🔍 Finding feeders for completed transformers...');
-
-const completedFeederIds = new Set();
-
-if (map.isSourceLoaded('transformers')) {
-const transformerFeatures = map.querySourceFeatures('transformers', {
-sourceLayer: 'transformer_bank-2wyyho'
-});
-
-// Find FEEDERID values for completed transformers
-transformerFeatures.forEach(feature => {
-const objectId = String(feature.properties.OBJECTID);
-const feederId = feature.properties.FEEDERID;
-
-if (completedTransformerIds.includes(objectId) && feederId) {
-completedFeederIds.add(feederId);
-console.log(`📡 Transformer ${objectId} on feeder ${feederId} is complete`);
-}
-});
-
-console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
-
-// Create filter to hide meters on completed feeders
-if (completedFeederIds.size > 0) {
-const meterFilter = ['!in', 'FEEDERID'];
-Array.from(completedFeederIds).forEach(feederId => meterFilter.push(feederId));
-console.log('🔍 Applying meter filter:', JSON.stringify(meterFilter));
-
-if (map.getLayer('electric-meters')) {
-map.setFilter('electric-meters', meterFilter);
-}
-if (map.getLayer('meter-labels')) {
-map.setFilter('meter-labels', meterFilter);
-}
-} else {
-console.log('📍 No valid feeder IDs found for completed transformers');
-}
-} else {
-console.log('⏳ Transformer source not yet loaded, will retry when available');
-map.once('sourcedata', (e) => {
-if (e.sourceId === 'transformers' && e.isSourceLoaded) {
-hideAssociatedMeters(completedTransformerIds);
-}
-});
-}
-} catch (error) {
-console.error('❌ Error hiding associated meters:', error);
-}
-}
 
 // Start initial audit status check and set up periodic refresh
 console.log('🚀 Initializing audit status tracking...');
@@ -901,7 +910,6 @@ map.getCanvas().style.cursor = '';
 // Add zoom and rotation controls to the map.
 map.addControl(new mapboxgl.NavigationControl());
 
-// --- SECTION ADDED ---
 // Add geolocate control to the map for GPS functionality.
 map.addControl(
 new mapboxgl.GeolocateControl({
@@ -914,7 +922,6 @@ trackUserLocation: true,
 showUserHeading: true
 })
 );
-// --- END SECTION ADDED ---
 
 
 } else {
