@@ -496,16 +496,13 @@ console.log('🗂️ Available transformer properties:', Object.keys(transformer
 // Apply filters to hide completed transformers with corrected syntax
 if (map.getLayer('transformers-underground')) {
 if (completedIds.length > 0) {
-// Manually build the filter array to avoid concat issues
-const undergroundFilter = [
-'all',
-['==', 'TRANSFORMER', 'Underground'],
-['!in', ['get', 'OBJECTID']]
-];
-// Add each ID individually to avoid array nesting
-completedIds.forEach(id => undergroundFilter[2].push(String(id)));
-console.log('🟢 Applying underground filter:', JSON.stringify(undergroundFilter));
-map.setFilter('transformers-underground', undergroundFilter);
+// Use individual != checks instead of !in to avoid array syntax issues
+const conditions = ['all', ['==', 'TRANSFORMER', 'Underground']];
+completedIds.forEach(id => {
+conditions.push(['!=', 'OBJECTID', Number(id)]);
+});
+console.log('🟢 Applying underground filter:', JSON.stringify(conditions));
+map.setFilter('transformers-underground', conditions);
 } else {
 map.setFilter('transformers-underground', ['==', 'TRANSFORMER', 'Underground']);
 console.log('🟢 Showing all underground transformers');
@@ -514,14 +511,12 @@ console.log('🟢 Showing all underground transformers');
 
 if (map.getLayer('transformers-overhead')) {
 if (completedIds.length > 0) {
-const overheadFilter = [
-'all',
-['!=', 'TRANSFORMER', 'Underground'],
-['!in', ['get', 'OBJECTID']]
-];
-completedIds.forEach(id => overheadFilter[2].push(String(id)));
-console.log('🔵 Applying overhead filter:', JSON.stringify(overheadFilter));
-map.setFilter('transformers-overhead', overheadFilter);
+const conditions = ['all', ['!=', 'TRANSFORMER', 'Underground']];
+completedIds.forEach(id => {
+conditions.push(['!=', 'OBJECTID', Number(id)]);
+});
+console.log('🔵 Applying overhead filter:', JSON.stringify(conditions));
+map.setFilter('transformers-overhead', conditions);
 } else {
 map.setFilter('transformers-overhead', ['!=', 'TRANSFORMER', 'Underground']);
 console.log('🔵 Showing all overhead transformers');
@@ -530,10 +525,12 @@ console.log('🔵 Showing all overhead transformers');
 
 if (map.getLayer('transformer-labels')) {
 if (completedIds.length > 0) {
-const labelFilter = ['!in', ['get', 'OBJECTID']];
-completedIds.forEach(id => labelFilter.push(String(id)));
-console.log('🏷️ Applying label filter:', JSON.stringify(labelFilter));
-map.setFilter('transformer-labels', labelFilter);
+const conditions = ['all'];
+completedIds.forEach(id => {
+conditions.push(['!=', 'OBJECTID', Number(id)]);
+});
+console.log('🏷️ Applying label filter:', JSON.stringify(conditions));
+map.setFilter('transformer-labels', conditions);
 } else {
 map.setFilter('transformer-labels', null);
 console.log('🏷️ Showing all transformer labels');
