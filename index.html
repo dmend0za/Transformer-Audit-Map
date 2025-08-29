@@ -496,12 +496,11 @@ console.log('🗂️ Available transformer properties:', Object.keys(transformer
 // Apply filters to hide completed transformers with corrected syntax
 if (map.getLayer('transformers-underground')) {
 if (completedIds.length > 0) {
-// Correct Mapbox syntax: use 'in' with negation instead of '!in'
-// ['!', ['in', ['get', 'OBJECTID'], ['literal', ['id1', 'id2', 'id3']]]]
+// Use the proper !in syntax - the issue was array nesting before
 const undergroundFilter = [
 'all',
 ['==', 'TRANSFORMER', 'Underground'],
-['!', ['in', ['get', 'OBJECTID'], ['literal', completedIds.map(String)]]]
+['!in', ['get', 'OBJECTID']].concat(completedIds.map(String))
 ];
 console.log('🟢 Applying underground filter:', JSON.stringify(undergroundFilter));
 map.setFilter('transformers-underground', undergroundFilter);
@@ -516,7 +515,7 @@ if (completedIds.length > 0) {
 const overheadFilter = [
 'all',
 ['!=', 'TRANSFORMER', 'Underground'],
-['!', ['in', ['get', 'OBJECTID'], ['literal', completedIds.map(String)]]]
+['!in', ['get', 'OBJECTID']].concat(completedIds.map(String))
 ];
 console.log('🔵 Applying overhead filter:', JSON.stringify(overheadFilter));
 map.setFilter('transformers-overhead', overheadFilter);
@@ -528,7 +527,7 @@ console.log('🔵 Showing all overhead transformers');
 
 if (map.getLayer('transformer-labels')) {
 if (completedIds.length > 0) {
-const labelFilter = ['!', ['in', ['get', 'OBJECTID'], ['literal', completedIds.map(String)]]];
+const labelFilter = ['!in', ['get', 'OBJECTID']].concat(completedIds.map(String));
 console.log('🏷️ Applying label filter:', JSON.stringify(labelFilter));
 map.setFilter('transformer-labels', labelFilter);
 } else {
@@ -582,7 +581,8 @@ console.log('🎯 Completed feeder IDs:', Array.from(completedFeederIds));
 
 // Create filter to hide meters on completed feeders
 if (completedFeederIds.size > 0) {
-const meterFilter = ['!', ['in', 'FEEDERID', ['literal', Array.from(completedFeederIds)]]];
+const feederArray = Array.from(completedFeederIds);
+const meterFilter = ['!in', 'FEEDERID'].concat(feederArray);
 console.log('🔍 Applying meter filter:', JSON.stringify(meterFilter));
 
 if (map.getLayer('electric-meters')) {
